@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Mini-UNA</string>
+    <string name="accessibility_service_description">Mini-UNA использует службу специальных возможностей только для голосовых системных действий: Назад, Домой, Недавние и Блокировка экрана.</string>
+</resources>
