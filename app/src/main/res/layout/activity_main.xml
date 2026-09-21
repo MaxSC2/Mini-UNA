@@ -30,8 +30,11 @@
             <TextView style="@style/PageTitle" android:text="Инструменты"/>
             <TextView style="@style/PageSubtitle" android:text="Действия, которые выполняются локально, без большой модели."/>
             <TextView android:id="@+id/toolStatus" style="@style/PanelText"
-                android:text="✓ Время&#10;✓ Дата&#10;✓ Калькулятор&#10;✓ Веб-поиск&#10;✓ Заметки&#10;• Таймер&#10;• Системная информация"/>
+                android:text="✓ Needle 3 + confidence gate&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Громкость&#10;✓ Назад / Домой / Недавние / Блокировка*&#10;&#10;*для системных действий включи службу Mini-UNA"/>
             <Button android:id="@+id/testTool" style="@style/PillButton" android:text="Проверить локальный router"/>
+            <Button android:id="@+id/accessibilityButton" style="@style/PillButton"
+                android:text="Открыть настройки специальных возможностей"
+                android:layout_marginBottom="12dp"/>
         </LinearLayout>
 
         <LinearLayout android:id="@+id/notesPage" android:layout_width="match_parent" android:layout_height="match_parent"
