@@ -54,11 +54,11 @@
                 <TextView style="@style/SectionTitle" android:text="Маскот"/>
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Следить за касанием"/>
-                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleTracking"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleTracking" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                 </LinearLayout>
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Дыхание сферы"/>
-                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleBreathing"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleBreathing" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                 </LinearLayout>
 
                 <TextView style="@style/SectionTitle" android:text="Эмоция"/>
@@ -70,7 +70,7 @@
                 <TextView style="@style/SectionTitle" android:text="Голос"/>
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Озвучивать ответы"/>
-                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleVoice"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleVoice" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                 </LinearLayout>
 
                 <TextView style="@style/SectionTitle" android:text="Модель"/>
