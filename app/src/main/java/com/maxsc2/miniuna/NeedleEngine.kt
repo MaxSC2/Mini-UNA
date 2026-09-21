@@ -12,75 +12,167 @@ class NeedleEngine(
     private val fallback: IntentEngine = LocalIntentEngine()
 ) : IntentEngine {
 
+    companion object {
+        private const val CONFIDENCE_THRESHOLD = 0.70f
+        private const val BUFFER_SIZE = 1024 * 1024
+    }
+
     private var model: Long = 0L
     private var nativeReady = false
     private var toolsJson: String? = null
 
     override fun classify(text: String): IntentResult {
         if (!ensureNativeModel()) return fallback.classify(text)
+
         return try {
-            val messages = JSONObject()
+            val system = JSONObject()
+                .put("role", "system")
+                .put(
+                    "content",
+                    "Device: Android phone. Use only declared tools. Never invent missing arguments."
+                )
+            val user = JSONObject()
                 .put("role", "user")
                 .put("content", text)
-                .let { "[" + it.toString() + "]" }
-            val buffer = ByteArray(65536)
-            val rc = CactusJNI.nativeComplete(model, messages, buffer, null, toolsJson, null, null)
-            if (rc < 0) return fallback.classify(text)
+            val messages = "[" + system + "," + user + "]"
+
+            val buffer = ByteArray(BUFFER_SIZE)
+            val rc = CactusJNI.nativeComplete(
+                model,
+                messages,
+                buffer,
+                null,
+                toolsJson,
+                null,
+                null
+            )
+
+            if (rc < 0) {
+                nativeReady = false
+                return fallback.classify(text)
+            }
+
             val end = buffer.indexOf(0)
-            val json = String(if (end >= 0) buffer.copyOf(end) else buffer, StandardCharsets.UTF_8).trim()
+            val json = String(
+                if (end >= 0) buffer.copyOf(end) else buffer,
+                StandardCharsets.UTF_8
+            ).trim()
+
             parseNeedleResult(json) ?: fallback.classify(text)
         } catch (_: Throwable) {
             fallback.classify(text)
         }
     }
 
+    fun isNativeReady(): Boolean = nativeReady && model != 0L
+
     private fun parseNeedleResult(json: String): IntentResult? {
-        val root = JSONObject(json)
+        val root = try {
+            JSONObject(json)
+        } catch (_: Throwable) {
+            return null
+        }
+
         val confidence = root.optDouble("confidence", 0.0).toFloat()
-        val calls = root.optJSONArray("function_calls") ?: return null
-        if (calls.length() == 0 || confidence < 0.72f) return IntentResult("UNKNOWN", confidence)
-        val call = calls.getJSONObject(0)
+        val reasoning = root.optString("reasoning", "")
+        val calls = root.optJSONArray("function_calls")
+        val suppressed = root.optJSONArray("suppressed_calls")
+
+        if (calls != null && calls.length() > 0) {
+            return parseCall(calls.getJSONObject(0), confidence, reasoning)
+                .copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD)
+        }
+
+        if (suppressed != null && suppressed.length() > 0) {
+            return parseCall(suppressed.getJSONObject(0), confidence, reasoning)
+                .copy(requiresConfirmation = true)
+        }
+
+        return null
+    }
+
+    private fun parseCall(
+        call: JSONObject,
+        confidence: Float,
+        reasoning: String
+    ): IntentResult {
         val name = call.optString("name")
         val args = call.optJSONObject("arguments")
         val map = mutableMapOf<String, String>()
+
         if (args != null) {
-            args.keys().forEach { key -> map[key] = args.optString(key) }
+            val keys = args.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = args.opt(key)
+                if (value != JSONObject.NULL) map[key] = value.toString()
+            }
         }
+
         val intent = when (name) {
             "get_time" -> "GET_TIME"
             "get_date" -> "GET_DATE"
-            "calculate" -> "CALCULATE"
+            "open_app" -> "OPEN_APP"
+            "open_settings" -> "OPEN_SETTINGS"
             "open_web" -> "OPEN_WEB"
+            "calculate" -> "CALCULATE"
             "save_note" -> "SAVE_NOTE"
+            "set_timer_seconds" -> "SET_TIMER_SECONDS"
+            "set_timer_minutes" -> "SET_TIMER_MINUTES"
+            "set_timer_hours" -> "SET_TIMER_HOURS"
+            "volume_up" -> "VOLUME_UP"
+            "volume_down" -> "VOLUME_DOWN"
+            "volume_mute" -> "VOLUME_MUTE"
+            "go_back" -> "BACK"
+            "go_home" -> "HOME"
+            "open_recents" -> "RECENTS"
+            "lock_screen" -> "LOCK_SCREEN"
+            "open_accessibility_settings" -> "OPEN_ACCESSIBILITY_SETTINGS"
             else -> "UNKNOWN"
         }
-        return IntentResult(intent, confidence, map)
+
+        return IntentResult(
+            intent = intent,
+            confidence = confidence,
+            arguments = map,
+            reasoning = reasoning
+        )
     }
 
     private fun ensureNativeModel(): Boolean {
         if (nativeReady && model != 0L) return true
+
         return try {
             if (toolsJson == null) {
-                toolsJson = context.assets.open("needle_tools.json").bufferedReader().use { it.readText() }
+                toolsJson = context.assets.open("needle_tools.json")
+                    .bufferedReader()
+                    .use { it.readText() }
             }
-            val asset = context.assets.open("needle3.cact")
+
             val modelFile = File(context.filesDir, "needle3.cact")
             if (!modelFile.exists() || modelFile.length() == 0L) {
-                FileOutputStream(modelFile).use { out -> asset.copyTo(out) }
-            } else asset.close()
+                context.assets.open("needle3.cact").use { input ->
+                    FileOutputStream(modelFile).use { output -> input.copyTo(output) }
+                }
+            }
+
             model = CactusJNI.nativeInit(modelFile.absolutePath, null, false)
             nativeReady = model != 0L
             nativeReady
         } catch (_: Throwable) {
+            nativeReady = false
             false
         }
     }
 
     fun close() {
         if (model != 0L) {
-            try { CactusJNI.nativeDestroy(model) } catch (_: Throwable) {}
-            model = 0L
-            nativeReady = false
+            try {
+                CactusJNI.nativeDestroy(model)
+            } catch (_: Throwable) {
+            }
         }
+        model = 0L
+        nativeReady = false
     }
 }
