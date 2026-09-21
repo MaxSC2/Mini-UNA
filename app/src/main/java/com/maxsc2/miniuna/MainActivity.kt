@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         status = findViewById(R.id.status)
         mascot = findViewById(R.id.mascot)
         tts = TextToSpeech(this, this)
-        intentEngine = NeedleEngine(LocalIntentEngine())
+        intentEngine = NeedleEngine(this, LocalIntentEngine())
         setupNavigation()
         setupSettings()
         refreshNote()
@@ -230,7 +230,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
-        if (::tts.isInitialized) { tts.stop(); tts.shutdown() }
+        if (::tts.isInitialized) { tts.stop(); tts.shutdown() }\n        (intentEngine as? NeedleEngine)?.close()
         super.onDestroy()
     }
 }
