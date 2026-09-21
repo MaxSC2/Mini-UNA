@@ -88,7 +88,7 @@ class NeedleEngine(
                 .copy(requiresConfirmation = true)
         }
 
-        return null
+        return IntentResult("UNKNOWN", confidence, reasoning = reasoning)
     }
 
     private fun parseCall(
