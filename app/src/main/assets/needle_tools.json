@@ -1,7 +1,183 @@
 [
-  {"type":"function","function":{"name":"get_time","description":"Return the current local time.","parameters":{"type":"object","properties":{},"required":[]}}},
-  {"type":"function","function":{"name":"get_date","description":"Return today local date.","parameters":{"type":"object","properties":{},"required":[]}}},
-  {"type":"function","function":{"name":"calculate","description":"Calculate a simple arithmetic expression such as 12+7.","parameters":{"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"]}}},
-  {"type":"function","function":{"name":"open_web","description":"Open a website or search query.","parameters":{"type":"object","properties":{"target":{"type":"string"}},"required":["target"]}}},
-  {"type":"function","function":{"name":"save_note","description":"Save a short note on the device.","parameters":{"type":"object","properties":{"note":{"type":"string"}},"required":["note"]}}}
+  {
+    "type": "function",
+    "function": {
+      "name": "get_time",
+      "description": "Return the current local time on the Android phone.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_date",
+      "description": "Return today's local date on the Android phone.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_app",
+      "description": "Open an installed Android app by the name the user says, such as Telegram, YouTube or Chrome.",
+      "parameters": {
+        "type": "object",
+        "properties": {"app": {"type": "string", "minLength": 1}},
+        "required": ["app"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_settings",
+      "description": "Open Android settings. Choose the named section: wifi, bluetooth, sound, display, accessibility, or general.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": ["wifi", "bluetooth", "sound", "display", "accessibility", "general"]
+          }
+        },
+        "required": ["section"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_web",
+      "description": "Open a website URL or search the web for the user's target.",
+      "parameters": {
+        "type": "object",
+        "properties": {"target": {"type": "string", "minLength": 1}},
+        "required": ["target"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calculate",
+      "description": "Calculate a simple arithmetic expression such as 12+7, 20/4, 5*8 or 10-3.",
+      "parameters": {
+        "type": "object",
+        "properties": {"expression": {"type": "string", "minLength": 1}},
+        "required": ["expression"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "save_note",
+      "description": "Save a short note locally on this device.",
+      "parameters": {
+        "type": "object",
+        "properties": {"note": {"type": "string", "minLength": 1}},
+        "required": ["note"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "set_timer_seconds",
+      "description": "Open the Android timer UI for a duration stated in seconds.",
+      "parameters": {
+        "type": "object",
+        "properties": {"seconds": {"type": "integer", "minimum": 1, "maximum": 86400}},
+        "required": ["seconds"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "set_timer_minutes",
+      "description": "Open the Android timer UI for a duration stated in minutes.",
+      "parameters": {
+        "type": "object",
+        "properties": {"minutes": {"type": "integer", "minimum": 1, "maximum": 1440}},
+        "required": ["minutes"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "set_timer_hours",
+      "description": "Open the Android timer UI for a duration stated in hours.",
+      "parameters": {
+        "type": "object",
+        "properties": {"hours": {"type": "integer", "minimum": 1, "maximum": 24}},
+        "required": ["hours"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "volume_up",
+      "description": "Increase the current Android media volume.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "volume_down",
+      "description": "Decrease the current Android media volume.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "volume_mute",
+      "description": "Toggle Android media volume mute.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "go_back",
+      "description": "Navigate back in the current Android app using the accessibility service.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "go_home",
+      "description": "Go to the Android home screen using the accessibility service.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_recents",
+      "description": "Open Android recent apps using the accessibility service.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "lock_screen",
+      "description": "Lock the Android screen using the accessibility service.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_accessibility_settings",
+      "description": "Open Android accessibility settings so the user can enable Mini-UNA system controls.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  }
 ]
