@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: mini-una-apk-build
+  cancel-in-progress: true
+
 jobs:
   build:
     if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[ci-log]')
