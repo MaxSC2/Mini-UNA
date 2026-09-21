@@ -72,7 +72,7 @@
 
                 <TextView style="@style/SectionTitle" android:text="Модель"/>
                 <TextView android:id="@+id/modelStatus" style="@style/PanelText"
-                    android:text="Needle: adapter подключён, runtime ещё не встроен. Сейчас работает deterministic fallback."/>
+                    android:text="Needle 3: локальный runtime + confidence gate. При недоступности native runtime включается deterministic fallback."/>
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
