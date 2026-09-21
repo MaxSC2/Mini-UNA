@@ -67,6 +67,10 @@ class NeedleEngine(
     fun isNativeReady(): Boolean = nativeReady && model != 0L
 
     private fun parseNeedleResult(json: String): IntentResult? {
+        // Needle 3 can return a completed "respond" turn. Mini-UNA is intentionally
+        // a command router here, so only function calls become executable intents.
+        // Text answers belong to the higher-level assistant layer, not this router.
+
         val root = try {
             JSONObject(json)
         } catch (_: Throwable) {
