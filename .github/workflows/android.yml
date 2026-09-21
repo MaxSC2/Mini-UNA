@@ -93,7 +93,7 @@ jobs:
             exit 0
           fi
           git commit -m "[ci-log] capture Gradle build error"
-          git push
+          git push origin HEAD:main
 
       - name: Fail build after diagnostic capture
         if: steps.gradle_build.outcome == 'failure'
