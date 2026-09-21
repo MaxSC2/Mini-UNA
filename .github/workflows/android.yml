@@ -5,12 +5,18 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[ci-log]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -41,14 +47,53 @@ jobs:
       - name: Download Needle 3 weights
         run: |
           mkdir -p app/src/main/assets
-          curl -L --fail --retry 3             "https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact?download=true"             -o app/src/main/assets/needle3.cact
+          curl -L --fail --retry 3 \
+            "https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact?download=true" \
+            -o app/src/main/assets/needle3.cact
           test -s app/src/main/assets/needle3.cact
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        id: gradle_build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Publish build diagnostic to repository
+        if: steps.gradle_build.outcome == 'failure'
+        shell: bash
+        run: |
+          mkdir -p ci
+          {
+            echo "# Mini-UNA CI build failure"
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Run: $GITHUB_RUN_ID"
+            echo
+            echo "## Gradle output"
+            echo
+            echo '```text'
+            tail -n 400 "$RUNNER_TEMP/gradle-build.log"
+            echo '```'
+          } > ci/build-error.log
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ci/build-error.log
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "[ci-log] capture Gradle build error"
+          git push
+
+      - name: Fail build after diagnostic capture
+        if: steps.gradle_build.outcome == 'failure'
+        run: exit 1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
