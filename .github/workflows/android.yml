@@ -5,22 +5,16 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 concurrency:
   group: mini-una-apk-build
   cancel-in-progress: true
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[ci-log]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -60,44 +54,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        id: gradle_build
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
-          exit ${PIPESTATUS[0]}
-
-      - name: Publish build diagnostic to repository
-        if: steps.gradle_build.outcome == 'failure'
-        shell: bash
-        run: |
-          mkdir -p ci
-          {
-            echo "# Mini-UNA CI build failure"
-            echo
-            echo "- Commit: $GITHUB_SHA"
-            echo "- Run: $GITHUB_RUN_ID"
-            echo
-            echo "## Gradle output"
-            echo
-            echo '```text'
-            tail -n 400 "$RUNNER_TEMP/gradle-build.log"
-            echo '```'
-          } > ci/build-error.log
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ci/build-error.log
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "[ci-log] capture Gradle build error"
-          git push origin HEAD:main
-
-      - name: Fail build after diagnostic capture
-        if: steps.gradle_build.outcome == 'failure'
-        run: exit 1
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
