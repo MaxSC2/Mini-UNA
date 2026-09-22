@@ -97,6 +97,30 @@
                     android:text="Заметка"/>
             </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/quickActions"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/quickTime"
+                    style="@style/QuickButton"
+                    android:text="Время"/>
+
+                <Button
+                    android:id="@+id/quickYoutube"
+                    style="@style/QuickButton"
+                    android:text="YouTube"/>
+
+                <Button
+                    android:id="@+id/quickTimer"
+                    style="@style/QuickButton"
+                    android:text="Таймер 5м"/>
+            </LinearLayout>
+
             <Button
                 android:id="@+id/mic"
                 android:layout_width="match_parent"
@@ -130,7 +154,17 @@
             <TextView
                 android:id="@+id/toolStatus"
                 style="@style/PanelText"
-                android:text="✓ Needle 3 + confidence gate&#10;✓ Список установленных приложений&#10;✓ Понимание названий: «ютуб» → YouTube&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
+                android:text="✓ Needle 3 + confidence gate&#10;✓ Список установленных приложений&#10;✓ Понимание названий: «ютуб» → YouTube&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;✓ Каталог установленных приложений&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
+
+            <TextView
+                android:id="@+id/appCatalogStatus"
+                style="@style/PanelText"
+                android:text="Каталог приложений ещё не прочитан."/>
+
+            <Button
+                android:id="@+id/refreshApps"
+                style="@style/PillButton"
+                android:text="Обновить список приложений"/>
 
             <Button
                 android:id="@+id/testTool"
@@ -227,6 +261,56 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"/>
+
+                <TextView style="@style/SectionTitle" android:text="Сфера"/>
+
+                <LinearLayout style="@style/SettingRow">
+                    <TextView style="@style/SettingLabel" android:text="Аура"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleAura"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <LinearLayout style="@style/SettingRow">
+                    <TextView style="@style/SettingLabel" android:text="Живой блик"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleLight"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <LinearLayout style="@style/SettingRow">
+                    <TextView style="@style/SettingLabel" android:text="Глянец"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleGloss"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <TextView style="@style/SettingLabel" android:text="Дальность взгляда"/>
+                <SeekBar
+                    android:id="@+id/seekLook"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="55"/>
+
+                <TextView style="@style/SettingLabel" android:text="Размер глаз"/>
+                <SeekBar
+                    android:id="@+id/seekEyes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="50"/>
+
+                <TextView style="@style/SettingLabel" android:text="Поворот лица"/>
+                <SeekBar
+                    android:id="@+id/seekRoll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="50"/>
 
                 <TextView style="@style/SectionTitle" android:text="Голос"/>
                 <LinearLayout style="@style/SettingRow">
