@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var output: TextView
     private lateinit var status: TextView
     private lateinit var mascot: MascotView
+    private lateinit var mascotPreview: MascotView
     private lateinit var tts: TextToSpeech
     private lateinit var intentEngine: IntentEngine
     private lateinit var toolRegistry: ToolRegistry
@@ -39,8 +40,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             findViewById<View>(R.id.homePage),
             findViewById<View>(R.id.toolsPage),
             findViewById<View>(R.id.notesPage),
+            findViewById<View>(R.id.mascotPage),
             findViewById<View>(R.id.settingsPage)
         )
+    }
+
+    private fun eachMascot(block: (MascotView) -> Unit) {
+        block(mascot)
+        block(mascotPreview)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +57,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         output = findViewById(R.id.output)
         status = findViewById(R.id.status)
         mascot = findViewById(R.id.mascot)
+        mascotPreview = findViewById(R.id.mascotPreview)
         tts = TextToSpeech(this, this)
 
         intentEngine = NeedleEngine(this, LocalIntentEngine())
@@ -75,7 +83,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         findViewById<Button>(R.id.navHome).setOnClickListener { showPage(0) }
         findViewById<Button>(R.id.navTools).setOnClickListener { showPage(1) }
         findViewById<Button>(R.id.navNotes).setOnClickListener { showPage(2) }
-        findViewById<Button>(R.id.navSettings).setOnClickListener { showPage(3) }
+        findViewById<Button>(R.id.navMascot).setOnClickListener { showPage(3) }
+        findViewById<Button>(R.id.navSettings).setOnClickListener { showPage(4) }
         findViewById<Button>(R.id.mic).setOnClickListener { listen() }
 
         findViewById<Button>(R.id.quickTime).setOnClickListener {
@@ -125,7 +134,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         pages.forEachIndexed { i, page ->
             page.visibility = if (i == index) View.VISIBLE else View.GONE
         }
-        val navs = listOf(R.id.navHome, R.id.navTools, R.id.navNotes, R.id.navSettings)
+        val navs = listOf(R.id.navHome, R.id.navTools, R.id.navNotes, R.id.navMascot, R.id.navSettings)
         navs.forEachIndexed { i, id ->
             findViewById<Button>(id).alpha = if (i == index) 1f else 0.55f
         }
@@ -142,11 +151,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         tracking.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("tracking", checked).apply()
-            mascot.setTracking(checked)
+            eachMascot { it.setTracking(checked) }
         }
         breathing.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("breathing", checked).apply()
-            mascot.setBreathing(checked)
+            eachMascot { it.setBreathing(checked) }
         }
         voice.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("voice", checked).apply()
@@ -166,12 +175,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 alpha = if (pair.first == prefs.getString("emotion", "neutral")) 1f else 0.7f
                 setOnClickListener {
                     prefs.edit().putString("emotion", pair.first).apply()
-                    mascot.setEmotion(pair.first)
+                    eachMascot { it.setEmotion(pair.first) }
                     for (i in 0 until emotionBox.childCount) {
                         emotionBox.getChildAt(i).alpha = 0.55f
                     }
                     alpha = 1f
-                    mascot.blink()
+                    eachMascot { it.blink() }
                 }
             })
         }
@@ -214,28 +223,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         aura.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("aura", checked).apply()
-            mascot.setAuraEnabled(checked)
+            eachMascot { it.setAuraEnabled(checked) }
         }
         light.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("light", checked).apply()
-            mascot.setLightAnimation(checked)
+            eachMascot { it.setLightAnimation(checked) }
         }
         gloss.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("gloss", checked).apply()
-            mascot.setGloss(checked)
+            eachMascot { it.setGloss(checked) }
         }
 
         look.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
             prefs.edit().putInt("look", value).apply()
-            mascot.setLookTravel(0.08f + value / 100f * 0.26f)
+            eachMascot { it.setLookTravel(0.08f + value / 100f * 0.26f) }
         })
         eyes.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
             prefs.edit().putInt("eyes", value).apply()
-            mascot.setEyeScale(0.80f + value / 100f * 0.55f)
+            eachMascot { it.setEyeScale(0.80f + value / 100f * 0.55f) }
         })
         roll.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
             prefs.edit().putInt("roll", value).apply()
-            mascot.setRoll(value / 100f * 20f)
+            eachMascot { it.setRoll(value / 100f * 20f) }
         })
     }
 
@@ -257,12 +266,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applySavedMascotState() {
-        mascot.setTracking(prefs.getBoolean("tracking", true))
-        mascot.setBreathing(prefs.getBoolean("breathing", true))
-        mascot.setAuraEnabled(prefs.getBoolean("aura", true))
-        mascot.setLightAnimation(prefs.getBoolean("light", true))
-        mascot.setGloss(prefs.getBoolean("light", true))
-        mascot.setEmotion(prefs.getString("emotion", "neutral") ?: "neutral")
+        eachMascot { m ->
+            m.setTracking(prefs.getBoolean("tracking", true))
+            m.setBreathing(prefs.getBoolean("breathing", true))
+            m.setAuraEnabled(prefs.getBoolean("aura", true))
+            m.setLightAnimation(prefs.getBoolean("light", true))
+            m.setGloss(prefs.getBoolean("light", true))
+            m.setEmotion(prefs.getString("emotion", "neutral") ?: "neutral")
+        }
         applyPalette(
             paletteByName(prefs.getString("palette", "Синяя сфера"))
                 ?: paletteByName("Синяя сфера")!!
@@ -301,12 +312,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applyPalette(palette: Palette) {
-        mascot.setPalette(
-            Color.parseColor(palette.core),
-            Color.parseColor(palette.mid),
-            Color.parseColor(palette.rim),
-            Color.parseColor(palette.aura)
-        )
+        eachMascot {
+            it.setPalette(
+                Color.parseColor(palette.core),
+                Color.parseColor(palette.mid),
+                Color.parseColor(palette.rim),
+                Color.parseColor(palette.aura)
+            )
+        }
     }
 
     private fun paletteByName(name: String?): Palette? = listOf(

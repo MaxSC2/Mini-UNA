@@ -195,22 +195,43 @@
         </LinearLayout>
 
         <ScrollView
-            android:id="@+id/settingsPage"
+            android:id="@+id/mascotPage"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true"
-            android:padding="20dp"
             android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:padding="20dp">
 
-                <TextView style="@style/PageTitle" android:text="Настройки"/>
-                <TextView style="@style/PageSubtitle" android:text="Внешность, поведение и локальный режим."/>
+                <TextView style="@style/PageTitle" android:text="Маскот"/>
+                <TextView style="@style/PageSubtitle" android:text="Внешность и поведение. Всё применяется вживую."/>
 
-                <TextView style="@style/SectionTitle" android:text="Маскот"/>
+                <com.maxsc2.miniuna.MascotView
+                    android:id="@+id/mascotPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="230dp"
+                    android:layout_marginBottom="8dp"
+                    android:contentDescription="Предпросмотр маскота"/>
+
+                <TextView style="@style/SectionTitle" android:text="Эмоция"/>
+                <LinearLayout
+                    android:id="@+id/emotionButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
+
+                <TextView style="@style/SectionTitle" android:text="Палитра"/>
+                <LinearLayout
+                    android:id="@+id/paletteButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
+
+                <TextView style="@style/SectionTitle" android:text="Поведение"/>
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Следить за касанием"/>
                     <androidx.appcompat.widget.SwitchCompat
@@ -228,7 +249,6 @@
                 </LinearLayout>
 
                 <TextView style="@style/SectionTitle" android:text="Живость"/>
-
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Аура и свечение"/>
                     <androidx.appcompat.widget.SwitchCompat
@@ -245,22 +265,7 @@
                         android:layout_height="wrap_content"/>
                 </LinearLayout>
 
-                <TextView style="@style/SectionTitle" android:text="Эмоция"/>
-                <LinearLayout
-                    android:id="@+id/emotionButtons"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-
-                <TextView style="@style/SectionTitle" android:text="Палитра"/>
-                <LinearLayout
-                    android:id="@+id/paletteButtons"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-
                 <TextView style="@style/SectionTitle" android:text="Сфера"/>
-
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Глянец"/>
                     <androidx.appcompat.widget.SwitchCompat
@@ -292,6 +297,24 @@
                     android:layout_height="wrap_content"
                     android:max="100"
                     android:progress="50"/>
+            </LinearLayout>
+        </ScrollView>
+
+        <ScrollView
+            android:id="@+id/settingsPage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:padding="20dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView style="@style/PageTitle" android:text="Настройки"/>
+                <TextView style="@style/PageSubtitle" android:text="Голос и локальный режим."/>
 
                 <TextView style="@style/SectionTitle" android:text="Голос"/>
                 <LinearLayout style="@style/SettingRow">
@@ -324,6 +347,7 @@
         <Button android:id="@+id/navHome" style="@style/NavButton" android:text="Главная"/>
         <Button android:id="@+id/navTools" style="@style/NavButton" android:text="Инструменты"/>
         <Button android:id="@+id/navNotes" style="@style/NavButton" android:text="Заметки"/>
+        <Button android:id="@+id/navMascot" style="@style/NavButton" android:text="Маскот"/>
         <Button android:id="@+id/navSettings" style="@style/NavButton" android:text="Настройки"/>
     </LinearLayout>
 </LinearLayout>

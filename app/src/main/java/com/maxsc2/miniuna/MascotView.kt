@@ -47,6 +47,47 @@ class MascotView @JvmOverloads constructor(
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glossPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val xPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val blushPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(235, 255, 110, 140)
+    }
+    private val zzzPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(156, 200, 255)
+        textAlign = Paint.Align.CENTER
+    }
+
+    // Emotion face parameters, ported from the kimi-mascot reference:
+    // eye height scale, eye tilt, blush opacity, blink-rate multiplier.
+    private data class EmoFace(
+        val eyeSY: Float,
+        val eyeTilt: Float,
+        val blush: Float,
+        val blinkGap: Float,
+        val sleepy: Boolean = false,
+        val dizzy: Boolean = false
+    )
+
+    private val emoFaces = mapOf(
+        "neutral" to EmoFace(1f, 0f, 0f, 1f),
+        "happy" to EmoFace(0.45f, 0f, 0.35f, 0.7f),
+        "surprised" to EmoFace(1.32f, 0f, 0f, 1.5f),
+        "smirk" to EmoFace(0.8f, -10f, 0f, 1f),
+        "grin" to EmoFace(0.55f, 0f, 0.25f, 0.7f),
+        "shy" to EmoFace(0.65f, 10f, 1f, 0.8f),
+        "dizzy" to EmoFace(1f, 0f, 0.15f, 0.6f, dizzy = true),
+        "sad" to EmoFace(0.85f, 14f, 0f, 1.7f),
+        "angry" to EmoFace(0.8f, -18f, 0f, 0.9f),
+        "sleepy" to EmoFace(0.12f, 0f, 0f, 0f, sleepy = true)
+    )
+
+    // Smoothed live values: emotions transition without jumps.
+    private var curSY = 1f
+    private var curTilt = 0f
+    private var curBlush = 0f
 
     private var cachedRadius = -1f
     private var cachedCx = -1f
@@ -144,6 +185,13 @@ class MascotView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
+        // Optimization: pause the frame loop while hidden (page GONE, activity
+        // in background). No postInvalidate here, so the loop fully stops.
+        if (visibility != VISIBLE || !isShown) {
+            lastFrame = 0L
+            return
+        }
+
         val now = System.currentTimeMillis()
         if (lastFrame != 0L && now - lastFrame < frameIntervalMs) {
             postInvalidateDelayed(frameIntervalMs - (now - lastFrame))
@@ -162,10 +210,17 @@ class MascotView @JvmOverloads constructor(
         val idleX = sin(time * 0.55f) * 0.035f
         val idleY = cos(time * 0.43f) * 0.025f
 
-        if (now >= nextBlinkAt && now >= blinkUntil) {
+        val emo = emoFaces[emotion] ?: emoFaces.getValue("neutral")
+        // Smooth emotion transitions, like the reference (lerp per frame).
+        curSY += (emo.eyeSY - curSY) * 0.15f
+        curTilt += (emo.eyeTilt - curTilt) * 0.15f
+        curBlush += (emo.blush - curBlush) * 0.12f
+
+        // Sleepy never auto-blinks: the eyes are already closed.
+        if (!emo.sleepy && now >= nextBlinkAt && now >= blinkUntil) {
             blinkStarted = now
             blinkUntil = now + 155L
-            scheduleNextBlink(now)
+            scheduleNextBlink(now, emo.blinkGap)
         }
 
         val blinkFactor = blinkFactor(now)
@@ -201,9 +256,11 @@ class MascotView @JvmOverloads constructor(
         val liveY = gazeY + idleY * (1f - abs(gazeY))
 
         if (gloss) {
-            val lightAngle = if (lightAnimation) time * 0.42f else 0.35f
-            val lx = cx + cos(lightAngle) * radius * 0.34f + liveLightX(radius, liveX)
-            val ly = cy - radius * 0.42f + sin(lightAngle) * radius * 0.10f + liveLightY(radius, liveY)
+            // Reference behavior: the gloss travels opposite the gaze,
+            // with a small idle drift while light animation is on.
+            val drift = if (lightAnimation) sin(time * 0.42f) * radius * 0.04f else 0f
+            val lx = cx - liveX * radius * 0.30f + drift
+            val ly = cy - radius * 0.40f - liveY * radius * 0.18f
             canvas.drawOval(
                 lx - radius * 0.23f,
                 ly - radius * 0.13f,
@@ -222,18 +279,43 @@ class MascotView @JvmOverloads constructor(
         canvas.rotate(faceRotation, cx, cy)
         canvas.translate(faceX, faceY)
 
-        val eyeW = radius * 0.20f * eyeScale
-        val eyeH = radius * 0.36f * eyeScale
-        val gap = radius * 0.42f
+        // Reference measurements: eye centers ~27% of diameter apart, ~36% from top.
+        val eyeW = radius * 0.21f * eyeScale
+        val eyeH = radius * 0.40f * eyeScale * curSY
+        val gap = radius * 0.54f
+        val eyeY = cy - radius * 0.28f
 
         // The farther eye narrows strongly, while the near eye stays readable.
         val perspective = min(0.70f, abs(liveX) * 0.72f)
         val leftScale = 1f - perspective * if (liveX > 0f) 0.78f else 0.06f
         val rightScale = 1f - perspective * if (liveX < 0f) 0.78f else 0.06f
-        val eyeTilt = liveX * 6f
+        val eyeTilt = liveX * 6f + curTilt
 
-        drawEye(canvas, cx - gap / 2f, cy - radius * 0.20f, eyeW * leftScale, eyeH * blinkFactor, eyeTilt)
-        drawEye(canvas, cx + gap / 2f, cy - radius * 0.20f, eyeW * rightScale, eyeH * blinkFactor, eyeTilt)
+        if (curBlush > 0.02f) {
+            blushPaint.alpha = (235f * curBlush.coerceIn(0f, 1f)).toInt()
+            val bw = radius * 0.17f
+            val bh = radius * 0.09f
+            val bxOff = gap * 0.5f + radius * 0.27f
+            val by = cy + radius * 0.21f
+            canvas.drawOval(cx - bxOff - bw, by - bh, cx - bxOff + bw, by + bh, blushPaint)
+            canvas.drawOval(cx + bxOff - bw, by - bh, cx + bxOff + bw, by + bh, blushPaint)
+        }
+
+        if (emo.dizzy) {
+            val s = eyeW * 0.45f
+            xPaint.strokeWidth = (s * 0.32f).coerceAtLeast(2f)
+            drawXEye(canvas, cx - gap / 2f, eyeY, s, eyeTilt)
+            drawXEye(canvas, cx + gap / 2f, eyeY, s, eyeTilt)
+        } else {
+            drawEye(canvas, cx - gap / 2f, eyeY, eyeW * leftScale, eyeH * blinkFactor, eyeTilt)
+            drawEye(canvas, cx + gap / 2f, eyeY, eyeW * rightScale, eyeH * blinkFactor, eyeTilt)
+        }
+
+        if (emo.sleepy) {
+            zzzPaint.textSize = radius * 0.20f
+            zzzPaint.alpha = (140f + 90f * sin(time * 2.8f)).toInt().coerceIn(0, 255)
+            canvas.drawText("z z", cx + radius * 0.55f, cy - radius * 0.75f, zzzPaint)
+        }
 
         canvas.restore()
         canvas.restore()
@@ -313,14 +395,24 @@ class MascotView @JvmOverloads constructor(
         return (1f - sin(progress * Math.PI).toFloat() * 0.96f).coerceAtLeast(0.04f)
     }
 
-    private fun scheduleNextBlink(now: Long) {
-        val variation = 2400L + ((now / 173L) % 3200L)
-        nextBlinkAt = now + variation
+    private fun scheduleNextBlink(now: Long, gap: Float = 1f) {
+        val variation = 2400L + ((now / 173L) % 2200L)
+        nextBlinkAt = now + (variation * gap).toLong().coerceAtLeast(600L)
     }
 
-    private fun liveLightX(radius: Float, gaze: Float): Float = gaze * radius * 0.12f
+    private fun drawXEye(canvas: Canvas, x: Float, y: Float, s: Float, rotation: Float = 0f) {
+        canvas.save()
+        canvas.rotate(rotation, x, y)
+        canvas.drawLine(x - s, y - s, x + s, y + s, xPaint)
+        canvas.drawLine(x - s, y + s, x + s, y - s, xPaint)
+        canvas.restore()
+    }
 
-    private fun liveLightY(radius: Float, gaze: Float): Float = gaze * radius * 0.08f
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        // Restart the frame loop after returning from background.
+        if (visibility == VISIBLE) invalidate()
+    }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
