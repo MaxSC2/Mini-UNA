@@ -13,6 +13,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
@@ -61,6 +62,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupSettings()
         refreshNote()
         applySavedMascotState()
+        setupMascotControls()
+        refreshAppCatalogStatus()
         updateModelStatus()
         showPage(0)
     }
@@ -195,6 +198,66 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             })
         }
+    }
+
+    private fun setupMascotControls() {
+        val aura = findViewById<SwitchCompat>(R.id.toggleAura)
+        val light = findViewById<SwitchCompat>(R.id.toggleLight)
+        val gloss = findViewById<SwitchCompat>(R.id.toggleGloss)
+        val look = findViewById<SeekBar>(R.id.seekLook)
+        val eyes = findViewById<SeekBar>(R.id.seekEyes)
+        val roll = findViewById<SeekBar>(R.id.seekRoll)
+
+        aura.isChecked = prefs.getBoolean("aura", true)
+        light.isChecked = prefs.getBoolean("light", true)
+        gloss.isChecked = prefs.getBoolean("gloss", true)
+
+        look.progress = prefs.getInt("look", 55)
+        eyes.progress = prefs.getInt("eyes", 50)
+        roll.progress = prefs.getInt("roll", 50)
+
+        aura.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("aura", checked).apply()
+            mascot.setAuraEnabled(checked)
+        }
+        light.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("light", checked).apply()
+            mascot.setLightAnimation(checked)
+        }
+        gloss.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("gloss", checked).apply()
+            mascot.setGloss(checked)
+        }
+
+        look.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
+            prefs.edit().putInt("look", value).apply()
+            mascot.setLookTravel(0.08f + value / 100f * 0.26f)
+        })
+        eyes.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
+            prefs.edit().putInt("eyes", value).apply()
+            mascot.setEyeScale(0.80f + value / 100f * 0.55f)
+        })
+        roll.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
+            prefs.edit().putInt("roll", value).apply()
+            mascot.setRoll(value / 100f * 20f)
+        })
+    }
+
+    private fun simpleSeekBarListener(onProgress: (Int) -> Unit) =
+        object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) onProgress(progress)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        }
+
+    private fun refreshAppCatalogStatus() {
+        val tools = AndroidTools(this)
+        val count = tools.appCount()
+        findViewById<TextView>(R.id.appCatalogStatus).text =
+            "Вижу " + count + " запускаемых приложений на устройстве. " +
+                "Needle получает их названия и может сопоставлять разговорные варианты вроде «ютуб» → YouTube."
     }
 
     private fun applySavedMascotState() {
