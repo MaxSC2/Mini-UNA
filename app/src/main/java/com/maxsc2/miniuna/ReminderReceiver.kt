@@ -31,11 +31,13 @@ class ReminderReceiver : BroadcastReceiver() {
         try {
             val prefs = context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
             if (!prefs.getBoolean("voice", true)) return
-            val tts = TextToSpeech(context) { code ->
+            var engine: TextToSpeech? = null
+            engine = TextToSpeech(context) { code ->
                 if (code == TextToSpeech.SUCCESS) {
-                    tts.language = Locale("ru", "RU")
+                    engine?.language = Locale("ru", "RU")
                 }
             }
+            val tts = engine
             // Даём движку секунду на инициализацию, затем озвучиваем и гасим.
             Thread {
                 try {
