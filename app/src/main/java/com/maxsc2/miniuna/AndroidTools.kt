@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.AlarmClock
 import android.provider.Settings
 import android.view.KeyEvent
@@ -217,9 +219,57 @@ class AndroidTools(private val context: Context) {
         return "Медиа-звук переключён."
     }
 
+    fun setVolumePercent(percent: Int): String {
+        val p = percent.coerceIn(0, 100)
+        return try {
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val idx = ((max * p) / 100f).roundToInt().coerceIn(0, max)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, idx, AudioManager.FLAG_SHOW_UI)
+            "Громкость $p%."
+        } catch (_: Throwable) {
+            "Не получилось изменить громкость."
+        }
+    }
+
+    fun setAlarm(hour: Int, minute: Int, days: List<Int>?, label: String = "Mini-UNA"): String {
+        val h = hour.coerceIn(0, 23)
+        val m = minute.coerceIn(0, 59)
+        val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+            putExtra(AlarmClock.EXTRA_HOUR, h)
+            putExtra(AlarmClock.EXTRA_MINUTES, m)
+            putExtra(AlarmClock.EXTRA_MESSAGE, label)
+            putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+            if (!days.isNullOrEmpty()) {
+                putIntegerArrayListExtra(AlarmClock.EXTRA_DAYS, ArrayList(days))
+            }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return try {
+            context.startActivity(intent)
+            val hh = h.toString().padStart(2, '0')
+            val mm = m.toString().padStart(2, '0')
+            "Будильник на $hh:$mm" + daysText(days) + "."
+        } catch (_: ActivityNotFoundException) {
+            "На устройстве нет приложения часов с будильником."
+        }
+    }
+
+    private fun daysText(days: List<Int>?): String {
+        if (days.isNullOrEmpty()) return ""
+        val weekdays = setOf(2, 3, 4, 5, 6)
+        val weekend = setOf(1, 7)
+        val set = days.toSet()
+        return when {
+            set == weekdays -> ", по будням"
+            set == weekend -> ", по выходным"
+            set.size >= 7 -> ", каждый день"
+            else -> ""
+        }
+    }
+
     fun playMusic(): String {
         val app = musicPriority.firstNotNullOfOrNull { hint -> resolveInstalledApp(hint) }
-            ?: return "Не нашла музыкальное приложение. Установи Spotify или Яндекс Музыку."
+            ?: return "Не нашла музыкальное приложение. Установи NeonWave, Spotify или Яндекс Музыку."
 
         return try {
             context.packageManager.getLaunchIntentForPackage(app.packageName)?.let {
@@ -227,9 +277,45 @@ class AndroidTools(private val context: Context) {
                 context.startActivity(it)
             }
             mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+            // Плееру нужно время на запуск сессии: проверяем в фоне, дожимаем
+            // play, а когда звук пошёл — возвращаем Юну наверх.
+            Thread {
+                try {
+                    Thread.sleep(1500)
+                    repeat(3) {
+                        if (audioManager.isMusicActive()) {
+                            bringAppFront()
+                            return@Thread
+                        }
+                        mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+                        Thread.sleep(1500)
+                    }
+                    if (audioManager.isMusicActive()) bringAppFront()
+                } catch (_: Throwable) {
+                }
+            }.apply { isDaemon = true; start() }
             "Включаю музыку в " + app.label + "."
         } catch (_: Throwable) {
             "Не получилось открыть «" + app.label + "»."
+        }
+    }
+
+    private fun bringAppFront() {
+        try {
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            } ?: return
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                context.startActivity(intent)
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Throwable) {
+                    }
+                }
+            }
+        } catch (_: Throwable) {
         }
     }
 

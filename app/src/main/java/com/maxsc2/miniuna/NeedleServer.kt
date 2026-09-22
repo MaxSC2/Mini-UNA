@@ -66,7 +66,9 @@ class NeedleServer(private val context: Context) {
                     .start()
                 process = proc
                 if (!waitPortOpen()) {
-                    lastError = "сервер needle не открыл порт $PORT"
+                    if (!lastError.startsWith("процесс needle завершился")) {
+                        lastError = "сервер needle не открыл порт $PORT" + logTail()
+                    }
                     Log.w("MiniUNA-Needle", lastError)
                     stopLocked()
                     return false
@@ -154,13 +156,30 @@ class NeedleServer(private val context: Context) {
     }
 
     private fun isPortOpen(): Boolean {
+        if (tryHost("127.0.0.1")) return true
+        return tryHost("::1")
+    }
+
+    private fun tryHost(host: String): Boolean {
         return try {
             Socket().use { s ->
-                s.connect(InetSocketAddress("127.0.0.1", PORT), 1500)
+                s.connect(InetSocketAddress(host, PORT), 1500)
                 true
             }
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    private fun logTail(): String {
+        return try {
+            val log = File(context.filesDir, "needle.log")
+            if (!log.exists()) return " (лог пуст)"
+            val bytes = log.readBytes()
+            val tail = String(bytes.takeLast(600).toByteArray(), StandardCharsets.UTF_8)
+            " лог: " + tail.replace(Regex("\\s+"), " ").trim().take(300)
+        } catch (_: Throwable) {
+            ""
         }
     }
 
@@ -171,8 +190,8 @@ class NeedleServer(private val context: Context) {
                 val p = process
                 if (p != null) {
                     try {
-                        p.exitValue()
-                        lastError = "процесс needle завершился при старте"
+                        val code = p.exitValue()
+                        lastError = "процесс needle завершился при старте (код $code)" + logTail()
                         return false
                     } catch (_: IllegalThreadStateException) {
                     }
@@ -196,34 +215,39 @@ class NeedleServer(private val context: Context) {
                     return null
                 }
             }
-            var conn: HttpURLConnection? = null
-            return try {
-                val payload = JSONObject().put("input", input).toString()
-                    .toByteArray(StandardCharsets.UTF_8)
-                conn = (URL("http://127.0.0.1:$PORT/complete").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json")
-                    connectTimeout = 8000
-                    readTimeout = 120_000
-                }
-                conn.outputStream.use { it.write(payload) }
-                if (conn.responseCode != 200) {
-                    lastError = "needle http ${conn.responseCode}"
-                    Log.w("MiniUNA-Needle", lastError)
-                    return null
-                }
-                conn.inputStream.bufferedReader(StandardCharsets.UTF_8)
-                    .use { it.readText() }.trim().ifBlank { null }
-            } catch (e: Throwable) {
-                lastError = "запрос к needle: ${e.message}"
+            post("http://127.0.0.1:$PORT/complete", input)?.let { return it }
+            return post("http://[::1]:$PORT/complete", input)
+        }
+    }
+
+    private fun post(url: String, input: String): String? {
+        var conn: HttpURLConnection? = null
+        return try {
+            val payload = JSONObject().put("input", input).toString()
+                .toByteArray(StandardCharsets.UTF_8)
+            conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = 8000
+                readTimeout = 120_000
+            }
+            conn.outputStream.use { it.write(payload) }
+            if (conn.responseCode != 200) {
+                lastError = "needle http ${conn.responseCode}"
                 Log.w("MiniUNA-Needle", lastError)
-                null
-            } finally {
-                try {
-                    conn?.disconnect()
-                } catch (_: Throwable) {
-                }
+                return null
+            }
+            conn.inputStream.bufferedReader(StandardCharsets.UTF_8)
+                .use { it.readText() }.trim().ifBlank { null }
+        } catch (e: Throwable) {
+            lastError = "запрос к needle: ${e.message}"
+            Log.w("MiniUNA-Needle", lastError)
+            null
+        } finally {
+            try {
+                conn?.disconnect()
+            } catch (_: Throwable) {
             }
         }
     }
