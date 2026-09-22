@@ -1,87 +1,209 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="@color/background">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background">
 
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-        <LinearLayout android:id="@+id/homePage" android:layout_width="match_parent" android:layout_height="match_parent"
-            android:orientation="vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingTop="18dp">
-            <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="MINI-UNA  •  local router" android:textColor="@color/text_secondary" android:textSize="12sp"
-                android:gravity="center" android:letterSpacing="0.08" android:paddingBottom="2dp"/>
-            <TextView android:id="@+id/homeTitle" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Я здесь." android:textColor="@color/text_primary" android:textSize="27sp" android:textStyle="bold"
-                android:gravity="center" android:paddingTop="8dp"/>
-            <TextView android:id="@+id/homeSubtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Локальный помощник на устройстве" android:textColor="@color/text_secondary" android:textSize="13sp"
-                android:gravity="center" android:paddingTop="3dp"/>
-            <com.maxsc2.miniuna.MascotView android:id="@+id/mascot" android:layout_width="match_parent"
-                android:layout_height="0dp" android:layout_weight="1" android:contentDescription="Mini-UNA"/>
-            <TextView android:id="@+id/output" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Нажми микрофон и дай команду." android:textColor="@color/text_primary" android:textSize="17sp"
-                android:gravity="center" android:padding="12dp"/>
-            <Button android:id="@+id/mic" android:layout_width="match_parent" android:layout_height="56dp"
-                android:text="🎙  Говорить" android:textAllCaps="false" android:textSize="16sp" android:layout_marginBottom="10dp"/>
+        <LinearLayout
+            android:id="@+id/homePage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:paddingTop="10dp">
+
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="MINI-UNA  •  local + Needle"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:letterSpacing="0.08"
+                android:paddingBottom="2dp"/>
+
+            <TextView
+                android:id="@+id/homeTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Я здесь."
+                android:textColor="@color/text_primary"
+                android:textSize="27sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingTop="5dp"/>
+
+            <TextView
+                android:id="@+id/homeSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Локальный помощник на устройстве"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:paddingTop="2dp"/>
+
+            <com.maxsc2.miniuna.MascotView
+                android:id="@+id/mascot"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:minHeight="280dp"
+                android:contentDescription="Mini-UNA"/>
+
+            <TextView
+                android:id="@+id/output"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="Нажми микрофон и дай команду."
+                android:textColor="@color/text_primary"
+                android:textSize="17sp"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="8dp"/>
+
+            <Button
+                android:id="@+id/mic"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:layout_marginBottom="8dp"
+                android:backgroundTint="#242733"
+                android:text="🎙  Говорить"
+                android:textAllCaps="false"
+                android:textColor="#F5F3FF"
+                android:textSize="16sp"
+                android:minHeight="54dp"/>
         </LinearLayout>
 
-        <LinearLayout android:id="@+id/toolsPage" android:layout_width="match_parent" android:layout_height="match_parent"
-            android:orientation="vertical" android:padding="20dp" android:visibility="gone">
+        <LinearLayout
+            android:id="@+id/toolsPage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:visibility="gone">
+
             <TextView style="@style/PageTitle" android:text="Инструменты"/>
-            <TextView style="@style/PageSubtitle" android:text="Действия, которые выполняются локально, без большой модели."/>
-            <TextView android:id="@+id/toolStatus" style="@style/PanelText"
-                android:text="✓ Needle 3 + confidence gate&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Громкость&#10;✓ Назад / Домой / Недавние / Блокировка*&#10;&#10;*для системных действий включи службу Mini-UNA"/>
-            <Button android:id="@+id/testTool" style="@style/PillButton" android:text="Проверить локальный router"/>
-            <Button android:id="@+id/accessibilityButton" style="@style/PillButton"
+            <TextView style="@style/PageSubtitle" android:text="Локальные действия и состояние Needle."/>
+            <TextView
+                android:id="@+id/toolStatus"
+                style="@style/PanelText"
+                android:text="✓ Needle 3 + confidence gate&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
+
+            <Button
+                android:id="@+id/testTool"
+                style="@style/PillButton"
+                android:text="Проверить локальный router"/>
+
+            <Button
+                android:id="@+id/accessibilityButton"
+                style="@style/PillButton"
                 android:text="Открыть настройки специальных возможностей"
                 android:layout_marginBottom="12dp"/>
         </LinearLayout>
 
-        <LinearLayout android:id="@+id/notesPage" android:layout_width="match_parent" android:layout_height="match_parent"
-            android:orientation="vertical" android:padding="20dp" android:visibility="gone">
+        <LinearLayout
+            android:id="@+id/notesPage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:visibility="gone">
+
             <TextView style="@style/PageTitle" android:text="Заметки"/>
             <TextView style="@style/PageSubtitle" android:text="Последняя локальная заметка хранится только на устройстве."/>
             <TextView android:id="@+id/noteText" style="@style/PanelText" android:text="Пока пусто."/>
             <Button android:id="@+id/clearNote" style="@style/PillButton" android:text="Очистить заметку"/>
         </LinearLayout>
 
-        <ScrollView android:id="@+id/settingsPage" android:layout_width="match_parent" android:layout_height="match_parent"
-            android:fillViewport="true" android:padding="20dp" android:visibility="gone">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <ScrollView
+            android:id="@+id/settingsPage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:padding="20dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
                 <TextView style="@style/PageTitle" android:text="Настройки"/>
                 <TextView style="@style/PageSubtitle" android:text="Внешность, поведение и локальный режим."/>
 
                 <TextView style="@style/SectionTitle" android:text="Маскот"/>
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Следить за касанием"/>
-                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleTracking" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleTracking"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
                 </LinearLayout>
+
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Дыхание сферы"/>
-                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleBreathing" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleBreathing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
                 </LinearLayout>
 
                 <TextView style="@style/SectionTitle" android:text="Эмоция"/>
-                <LinearLayout android:id="@+id/emotionButtons" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                <LinearLayout
+                    android:id="@+id/emotionButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
 
                 <TextView style="@style/SectionTitle" android:text="Палитра"/>
-                <LinearLayout android:id="@+id/paletteButtons" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                <LinearLayout
+                    android:id="@+id/paletteButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
 
                 <TextView style="@style/SectionTitle" android:text="Голос"/>
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Озвучивать ответы"/>
-                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/toggleVoice" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleVoice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
                 </LinearLayout>
 
                 <TextView style="@style/SectionTitle" android:text="Модель"/>
-                <TextView android:id="@+id/modelStatus" style="@style/PanelText"
-                    android:text="Needle 3: локальный runtime + confidence gate. При недоступности native runtime включается deterministic fallback."/>
+                <TextView
+                    android:id="@+id/modelStatus"
+                    style="@style/PanelText"
+                    android:text="Needle 3: состояние runtime определится после первого запуска."/>
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
 
-    <LinearLayout android:id="@+id/bottomNav" android:layout_width="match_parent" android:layout_height="72dp"
-        android:orientation="horizontal" android:gravity="center" android:padding="8dp" android:background="@color/panel">
+    <LinearLayout
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="66dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:background="#0F1117">
+
         <Button android:id="@+id/navHome" style="@style/NavButton" android:text="Главная"/>
         <Button android:id="@+id/navTools" style="@style/NavButton" android:text="Инструменты"/>
         <Button android:id="@+id/navNotes" style="@style/NavButton" android:text="Заметки"/>
