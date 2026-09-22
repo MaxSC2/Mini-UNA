@@ -40,9 +40,12 @@ jobs:
           echo "--- snapshot layout ---"
           find /tmp/needle3-hf -maxdepth 2 | head -n 30
           du -sh /tmp/needle3-hf
-          # Convert expects model.safetensors at root; the repo keeps it under checkpoints/.
+          # Convert expects model.safetensors + tokenizer files at root;
+          # the repo keeps them under checkpoints/ and tokenizer/.
           cp /tmp/needle3-hf/checkpoints/needle3.safetensors /tmp/needle3-hf/model.safetensors
-          cactus convert /tmp/needle3-hf /tmp/needle-bundle --bits "${{ inputs.bits }}" --skip-model-load || true
+          cp /tmp/needle3-hf/tokenizer/* /tmp/needle3-hf/ || true
+          ls /tmp/needle3-hf/*.model /tmp/needle3-hf/*.safetensors /tmp/needle3-hf/*.vocab 2>/dev/null
+          cactus convert /tmp/needle3-hf /tmp/needle-bundle --bits "${{ inputs.bits }}" || true
           echo "--- cactus list ---"
           cactus list || true
           echo "--- hunt for bundles ---"
