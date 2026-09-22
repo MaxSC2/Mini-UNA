@@ -198,7 +198,8 @@ class NeedleEngine(
         val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("""\\s+"""), " ")
         if (t.isBlank()) return null
 
-        // Persona first: greetings and small talk never reach the tools.        if (
+        // Persona first: greetings and small talk never reach the tools.
+        if (
             t == "привет" || t.startsWith("привет ") || t.startsWith("привет,") ||
             t == "здравствуй" || t == "здравствуйте" ||
             t.contains("доброе утро") || t.contains("добрый день") || t.contains("добрый вечер")
