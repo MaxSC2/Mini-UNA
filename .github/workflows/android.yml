@@ -50,14 +50,27 @@ jobs:
             -o app/src/main/assets/needle3.cact
           test -s app/src/main/assets/needle3.cact
 
+      - name: Set up signing keystore
+        run: |
+          echo "$MINIUNA_KEYSTORE_B64" | base64 -d > /tmp/mini-una-release.p12
+          test -s /tmp/mini-una-release.p12
+        env:
+          MINIUNA_KEYSTORE_B64: ${{ secrets.MINIUNA_KEYSTORE_B64 }}
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          KEYSTORE_PATH: /tmp/mini-una-release.p12
+          KEYSTORE_PASSWORD: ${{ secrets.MINIUNA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MINIUNA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MINIUNA_KEY_PASSWORD }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: mini-una-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: mini-una-release
+          path: app/build/outputs/apk/release/app-release.apk

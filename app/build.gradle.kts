@@ -11,12 +11,27 @@ android {
         applicationId = "com.maxsc2.miniuna"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
+        // CI passes VERSION_CODE=${{ github.run_number }} so every build installs as an update.
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 2
         versionName = "0.2.0"
+    }
+
+    signingConfigs {
+        create("miniuna") {
+            // CI provides KEYSTORE_PATH + passwords via secrets (persistent key).
+            // Local builds fall back to the debug keystore.
+            val ksPath = System.getenv("KEYSTORE_PATH")
+                ?: "${System.getProperty("user.home")}/.android/debug.keystore"
+            storeFile = file(ksPath)
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+        }
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("miniuna")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

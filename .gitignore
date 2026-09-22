@@ -1,0 +1,17 @@
+# Build outputs
+build/
+.gradle/
+local.properties
+
+# Signed APK kept locally via fetch-apk.sh (never commit binaries)
+/Mini-UNA.apk
+*.apk
+
+# Signing keys (see /sdcard/projects/.signing — backup it, never commit)
+*.jks
+*.p12
+*.keystore
+
+# CI-built native lib and model weights (rebuilt/downloaded by CI)
+app/src/main/jniLibs/
+app/src/main/assets/needle3.cact

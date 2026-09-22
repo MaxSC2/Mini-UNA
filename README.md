@@ -43,6 +43,16 @@ curl -L "https://huggingface.co/Cactus-Compute/needle3/resolve/main/needle3.cact
 gradle assembleDebug
 ```
 
+## APK и обновления
+
+CI собирает подписанный `release`-APK постоянным ключом, `versionCode` растёт с номером сборки — обновления ставятся поверх, переустановка не нужна. Ключ лежит только у владельца + base64 в GitHub Secrets, в репозитории его нет.
+
+Скачать последний зелёный APK в папку проекта (всегда один файл `Mini-UNA.apk`):
+
+```bash
+./fetch-apk.sh
+```
+
 ## Структура
 
 ```
