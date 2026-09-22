@@ -98,17 +98,12 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/quickActions"
+                android:id="@+id/quickActionsRow2"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:orientation="horizontal"
                 android:gravity="center"
                 android:layout_marginBottom="6dp">
-
-                <Button
-                    android:id="@+id/quickTime"
-                    style="@style/QuickButton"
-                    android:text="Время"/>
 
                 <Button
                     android:id="@+id/quickYoutube"
@@ -136,13 +131,18 @@
                 android:minHeight="54dp"/>
         </LinearLayout>
 
-        <LinearLayout
+        <ScrollView
             android:id="@+id/toolsPage"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="20dp"
+            android:fillViewport="true"
             android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
 
             <TextView style="@style/PageTitle" android:text="Инструменты"/>
             <TextView style="@style/PageSubtitle" android:text="Локальные действия и состояние Needle."/>
@@ -172,16 +172,12 @@
                 android:text="Проверить локальный router"/>
 
             <Button
-                android:id="@+id/refreshApps"
-                style="@style/PillButton"
-                android:text="Обновить список приложений"/>
-
-            <Button
                 android:id="@+id/accessibilityButton"
                 style="@style/PillButton"
                 android:text="Открыть настройки специальных возможностей"
                 android:layout_marginBottom="12dp"/>
-        </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
 
         <LinearLayout
             android:id="@+id/notesPage"
@@ -263,22 +259,6 @@
                     android:orientation="vertical"/>
 
                 <TextView style="@style/SectionTitle" android:text="Сфера"/>
-
-                <LinearLayout style="@style/SettingRow">
-                    <TextView style="@style/SettingLabel" android:text="Аура"/>
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/toggleAura"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"/>
-                </LinearLayout>
-
-                <LinearLayout style="@style/SettingRow">
-                    <TextView style="@style/SettingLabel" android:text="Живой блик"/>
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/toggleLight"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"/>
-                </LinearLayout>
 
                 <LinearLayout style="@style/SettingRow">
                     <TextView style="@style/SettingLabel" android:text="Глянец"/>

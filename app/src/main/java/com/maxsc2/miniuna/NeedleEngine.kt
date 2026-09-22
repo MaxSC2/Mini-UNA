@@ -1,6 +1,7 @@
 package com.maxsc2.miniuna
 
 import android.content.Context
+import android.util.Log
 import com.cactus.CactusJNI
 import org.json.JSONObject
 import java.io.File
@@ -19,7 +20,10 @@ class NeedleEngine(
     }
 
     private var model: Long = 0L
-    private var nativeReady = false
+    @Volatile private var nativeReady = false
+    @Volatile var lastError: String = "not started"
+        private set
+    private val initLock = Any()
     private var toolsJson: String? = null
     private val androidTools = AndroidTools(context)
     private val appCatalog = InstalledAppCatalog(context)
@@ -66,6 +70,8 @@ class NeedleEngine(
             )
 
             if (rc < 0) {
+                lastError = "nativeComplete вернул rc=$rc"
+                Log.w("MiniUNA-Needle", lastError)
                 nativeReady = false
                 return fallback.classify(text)
             }
@@ -83,6 +89,29 @@ class NeedleEngine(
     }
 
     fun isNativeReady(): Boolean = nativeReady && model != 0L
+
+    fun nativeStatus(): String = if (isNativeReady()) {
+        "Needle 3: native Cactus runtime активен."
+    } else {
+        "Needle 3: недоступен ($lastError)."
+    }
+
+    fun warmupAsync(onDone: ((Boolean) -> Unit)? = null) {
+        Thread {
+            val ok = try {
+                ensureNativeModel()
+            } catch (e: Throwable) {
+                lastError = "warmup: ${e.message}"
+                Log.w("MiniUNA-Needle", lastError)
+                false
+            }
+            Log.i("MiniUNA-Needle", "warmup ok=$ok status=$lastError")
+            try {
+                onDone?.invoke(ok)
+            } catch (_: Throwable) {
+            }
+        }.apply { isDaemon = true; start() }
+    }
 
     private fun fastPath(raw: String): IntentResult? {
         val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("""\\s+"""), " ")
@@ -320,26 +349,63 @@ class NeedleEngine(
     private fun ensureNativeModel(): Boolean {
         if (nativeReady && model != 0L) return true
 
-        return try {
-            if (toolsJson == null) {
-                toolsJson = context.assets.open("needle_tools.json")
-                    .bufferedReader()
-                    .use { it.readText() }
-            }
-
-            val modelFile = File(context.filesDir, "needle3.cact")
-            if (!modelFile.exists() || modelFile.length() == 0L) {
-                context.assets.open("needle3.cact").use { input ->
-                    FileOutputStream(modelFile).use { output -> input.copyTo(output) }
+        synchronized(initLock) {
+            if (nativeReady && model != 0L) return true
+            return try {
+                try {
+                    if (toolsJson == null) {
+                        toolsJson = context.assets.open("needle_tools.json")
+                            .bufferedReader()
+                            .use { it.readText() }
+                    }
+                } catch (e: Throwable) {
+                    lastError = "нет needle_tools.json в assets: ${e.message}"
+                    Log.w("MiniUNA-Needle", lastError)
+                    return false
                 }
-            }
 
-            model = CactusJNI.nativeInit(modelFile.absolutePath, null, false)
-            nativeReady = model != 0L
-            nativeReady
-        } catch (_: Throwable) {
-            nativeReady = false
-            false
+                val modelFile = File(context.filesDir, "needle3.cact")
+                if (!modelFile.exists() || modelFile.length() == 0L) {
+                    try {
+                        context.assets.open("needle3.cact").use { input ->
+                            FileOutputStream(modelFile).use { output -> input.copyTo(output) }
+                        }
+                    } catch (e: Throwable) {
+                        lastError = "нет needle3.cact в APK (assets): ${e.message}"
+                        Log.w("MiniUNA-Needle", lastError)
+                        return false
+                    }
+                }
+
+                try {
+                    model = CactusJNI.nativeInit(modelFile.absolutePath, null, false)
+                } catch (e: UnsatisfiedLinkError) {
+                    lastError = "нет libcactus_engine.so для этого ABI: ${e.message}"
+                    Log.w("MiniUNA-Needle", lastError)
+                    nativeReady = false
+                    return false
+                } catch (e: Throwable) {
+                    lastError = "nativeInit упал: ${e.message}"
+                    Log.w("MiniUNA-Needle", lastError)
+                    nativeReady = false
+                    return false
+                }
+                if (model == 0L) {
+                    lastError = "nativeInit вернул 0 (память или файл модели?)"
+                    Log.w("MiniUNA-Needle", lastError)
+                    nativeReady = false
+                    return false
+                }
+                nativeReady = true
+                lastError = "ok"
+                Log.i("MiniUNA-Needle", "native model ready")
+                true
+            } catch (e: Throwable) {
+                lastError = "ensure: ${e.message}"
+                Log.w("MiniUNA-Needle", lastError)
+                nativeReady = false
+                false
+            }
         }
     }
 

@@ -65,6 +65,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupMascotControls()
         refreshAppCatalogStatus()
         updateModelStatus()
+        (intentEngine as? NeedleEngine)?.warmupAsync {
+            runOnUiThread { updateModelStatus() }
+        }
         showPage(0)
     }
 
@@ -84,6 +87,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         findViewById<Button>(R.id.quickNote).setOnClickListener {
             showNoteComposer()
+        }
+        findViewById<Button>(R.id.quickYoutube).setOnClickListener {
+            handle("открой YouTube")
+        }
+        findViewById<Button>(R.id.quickTimer).setOnClickListener {
+            handle("поставь таймер на 5 минут")
         }
         findViewById<Button>(R.id.refreshApps).setOnClickListener {
             refreshAppSummary()
@@ -125,14 +134,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun setupSettings() {
         val tracking = findViewById<SwitchCompat>(R.id.toggleTracking)
         val breathing = findViewById<SwitchCompat>(R.id.toggleBreathing)
-        val aura = findViewById<SwitchCompat>(R.id.toggleAura)
-        val light = findViewById<SwitchCompat>(R.id.toggleLight)
         val voice = findViewById<SwitchCompat>(R.id.toggleVoice)
 
         tracking.isChecked = prefs.getBoolean("tracking", true)
         breathing.isChecked = prefs.getBoolean("breathing", true)
-        aura.isChecked = prefs.getBoolean("aura", true)
-        light.isChecked = prefs.getBoolean("light", true)
         voice.isChecked = prefs.getBoolean("voice", true)
 
         tracking.setOnCheckedChangeListener { _, checked ->
@@ -142,15 +147,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         breathing.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("breathing", checked).apply()
             mascot.setBreathing(checked)
-        }
-        aura.setOnCheckedChangeListener { _, checked ->
-            prefs.edit().putBoolean("aura", checked).apply()
-            mascot.setAuraEnabled(checked)
-        }
-        light.setOnCheckedChangeListener { _, checked ->
-            prefs.edit().putBoolean("light", checked).apply()
-            mascot.setLightAnimation(checked)
-            mascot.setGloss(checked)
         }
         voice.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("voice", checked).apply()
@@ -431,11 +427,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun updateModelStatus() {
-        val native = (intentEngine as? NeedleEngine)?.isNativeReady() == true
+        val engine = intentEngine as? NeedleEngine
+        val native = engine?.isNativeReady() == true
         val modelText = if (native) {
             "Needle 3: native Cactus runtime активен. Confidence gate: 0.70. Fast paths: активны."
         } else {
-            "Needle 3: native runtime недоступен. Работаю через deterministic fast paths + fallback."
+            (engine?.nativeStatus() ?: "Needle 3: движок недоступен.") +
+                " Работаю через deterministic fast paths + fallback."
         }
         findViewById<TextView>(R.id.modelStatus).text = modelText
         if (!status.text.toString().contains("слушаю")) {
