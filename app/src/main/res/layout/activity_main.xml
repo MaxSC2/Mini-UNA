@@ -142,6 +142,11 @@
                 android:text="Проверить локальный router"/>
 
             <Button
+                android:id="@+id/refreshApps"
+                style="@style/PillButton"
+                android:text="Обновить список приложений"/>
+
+            <Button
                 android:id="@+id/accessibilityButton"
                 style="@style/PillButton"
                 android:text="Открыть настройки специальных возможностей"
@@ -191,6 +196,24 @@
                     <TextView style="@style/SettingLabel" android:text="Дыхание сферы"/>
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/toggleBreathing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <TextView style="@style/SectionTitle" android:text="Живость"/>
+
+                <LinearLayout style="@style/SettingRow">
+                    <TextView style="@style/SettingLabel" android:text="Аура и свечение"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleAura"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <LinearLayout style="@style/SettingRow">
+                    <TextView style="@style/SettingLabel" android:text="Движение света и глянец"/>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/toggleLight"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"/>
                 </LinearLayout>
