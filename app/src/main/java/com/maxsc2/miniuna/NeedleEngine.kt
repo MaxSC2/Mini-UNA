@@ -63,7 +63,7 @@ class NeedleEngine(
                 StandardCharsets.UTF_8
             ).trim()
 
-            parseNeedleResult(json) ?: fallback.classify(text)
+            parseNeedleResult(json, text) ?: fallback.classify(text)
         } catch (_: Throwable) {
             fallback.classify(text)
         }
@@ -224,7 +224,7 @@ class NeedleEngine(
         "шестьдесят" to 60
     )[value]
 
-    private fun parseNeedleResult(json: String): IntentResult? {
+    private fun parseNeedleResult(json: String, originalText: String): IntentResult? {
         val root = try {
             JSONObject(json)
         } catch (_: Throwable) {
@@ -238,11 +238,16 @@ class NeedleEngine(
 
         if (calls != null && calls.length() > 0) {
             val result = parseCall(calls.getJSONObject(0), confidence, reasoning)
-            return if (result.intent == "UNKNOWN") {
-                fallback.classify(lastUserText(json))
-            } else {
-                result.copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD)
+            if (result.intent == "UNKNOWN") return fallback.classify(originalText)
+            if (result.arguments.isEmpty() && result.intent in setOf(
+                    "OPEN_APP", "OPEN_SETTINGS", "OPEN_WEB",
+                    "CALCULATE", "SAVE_NOTE",
+                    "SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS"
+                )
+            ) {
+                return fallback.classify(originalText)
             }
+            return result.copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD)
         }
 
         if (suppressed != null && suppressed.length() > 0) {
@@ -257,7 +262,6 @@ class NeedleEngine(
         return IntentResult("UNKNOWN", confidence, reasoning = reasoning)
     }
 
-    private fun lastUserText(json: String): String = json
 
     private fun parseCall(
         call: JSONObject,
