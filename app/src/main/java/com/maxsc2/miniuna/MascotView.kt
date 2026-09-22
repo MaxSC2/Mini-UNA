@@ -23,6 +23,12 @@ class MascotView @JvmOverloads constructor(
     private var emotion = "neutral"
     private var tracking = true
     private var breathing = true
+    private var auraEnabled = true
+    private var lightAnimation = true
+    private var gloss = true
+    private var lookTravel = 0.22f
+    private var eyeScale = 1f
+    private var roll = 10f
 
     private var gazeX = 0f
     private var gazeY = 0f
@@ -32,10 +38,13 @@ class MascotView @JvmOverloads constructor(
     private var blinkStarted = 0L
     private var blinkUntil = 0L
     private var nextBlinkAt = System.currentTimeMillis() + 2600L
+    private var hopStarted = 0L
+    private var hopUntil = 0L
 
     private val spherePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val auraPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glossPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var cachedRadius = -1f
@@ -49,9 +58,8 @@ class MascotView @JvmOverloads constructor(
     init {
         isClickable = true
         eyePaint.color = Color.WHITE
-        // Keep the mascot on Android's normal hardware renderer. The previous
-        // per-frame software layer forced expensive redraws and caused jank.
-        postInvalidateOnAnimation()
+        glossPaint.color = Color.argb(82, 255, 255, 255)
+        setLayerType(View.LAYER_TYPE_HARDWARE, null)
     }
 
     fun setPalette(core: Int, mid: Int, rim: Int, aura: Int) {
@@ -81,12 +89,49 @@ class MascotView @JvmOverloads constructor(
         invalidate()
     }
 
+    fun setAuraEnabled(enabled: Boolean) {
+        auraEnabled = enabled
+        invalidate()
+    }
+
+    fun setLightAnimation(enabled: Boolean) {
+        lightAnimation = enabled
+        invalidate()
+    }
+
+    fun setGloss(enabled: Boolean) {
+        gloss = enabled
+        invalidate()
+    }
+
+    fun setLookTravel(value: Float) {
+        lookTravel = value.coerceIn(0.08f, 0.34f)
+        invalidate()
+    }
+
+    fun setEyeScale(value: Float) {
+        eyeScale = value.coerceIn(0.8f, 1.35f)
+        invalidate()
+    }
+
+    fun setRoll(value: Float) {
+        roll = value.coerceIn(0f, 20f)
+        invalidate()
+    }
+
     fun blink() {
         val now = System.currentTimeMillis()
         blinkStarted = now
-        blinkUntil = now + 150L
+        blinkUntil = now + 155L
         scheduleNextBlink(now)
         invalidate()
+    }
+
+    private fun hop() {
+        val now = System.currentTimeMillis()
+        hopStarted = now
+        hopUntil = now + 340L
+        blink()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -105,24 +150,22 @@ class MascotView @JvmOverloads constructor(
         rebuildShadersIfNeeded(cx, cy, radius)
 
         val time = now / 1000f
-        val breathingScale = if (breathing) {
-            1f + sin(time * 1.7f) * 0.010f
-        } else {
-            1f
-        }
-
+        val breathingScale = if (breathing) 1f + sin(time * 1.7f) * 0.010f else 1f
         val idleX = sin(time * 0.55f) * 0.035f
         val idleY = cos(time * 0.43f) * 0.025f
 
         if (now >= nextBlinkAt && now >= blinkUntil) {
             blinkStarted = now
-            blinkUntil = now + 150L
+            blinkUntil = now + 155L
             scheduleNextBlink(now)
         }
 
         val blinkFactor = blinkFactor(now)
+        val hopOffset = if (now < hopUntil) {
+            val p = ((now - hopStarted).toFloat() / (hopUntil - hopStarted).coerceAtLeast(1L))
+            -sin(p * Math.PI).toFloat() * radius * 0.10f
+        } else 0f
 
-        // Soft shadow is a cached radial gradient, not a software Paint shadow.
         canvas.drawOval(
             cx - radius * 0.72f,
             cy + radius * 0.83f,
@@ -131,59 +174,63 @@ class MascotView @JvmOverloads constructor(
             shadowPaint
         )
 
-        canvas.drawCircle(cx, cy, radius * 1.22f, auraPaint)
+        if (auraEnabled) {
+            val pulse = 0.94f + sin(time * 1.5f) * 0.06f
+            canvas.drawCircle(cx, cy + hopOffset, radius * 1.22f * pulse, auraPaint)
+        }
 
         canvas.save()
+        canvas.translate(0f, hopOffset)
         canvas.scale(breathingScale, breathingScale, cx, cy)
         canvas.drawCircle(cx, cy, radius, spherePaint)
 
-        val e = emotionParams()
+        if (gloss) {
+            val lightAngle = if (lightAnimation) time * 0.42f else 0.35f
+            val lx = cx + cos(lightAngle) * radius * 0.34f
+            val ly = cy - radius * 0.42f + sin(lightAngle) * radius * 0.10f
+            canvas.drawOval(
+                lx - radius * 0.23f,
+                ly - radius * 0.13f,
+                lx + radius * 0.23f,
+                ly + radius * 0.13f,
+                glossPaint
+            )
+        }
 
         val desiredX = if (tracking) targetX else 0f
         val desiredY = if (tracking) targetY else 0f
-        gazeX += (desiredX - gazeX) * 0.16f
-        gazeY += (desiredY - gazeY) * 0.16f
+        gazeX += (desiredX - gazeX) * 0.20f
+        gazeY += (desiredY - gazeY) * 0.20f
 
         val liveX = gazeX + idleX * (1f - abs(gazeX))
         val liveY = gazeY + idleY * (1f - abs(gazeY))
 
-        // The face moves around the sphere instead of merely sliding a few pixels.
-        val faceX = liveX * radius * 0.22f * e.look
-        val faceY = liveY * radius * 0.19f * e.look + e.droop
-        val faceRotation = liveX * liveY * 10f + e.tilt
+        // The sphere stays round. Only the face travels across its surface.
+        val faceX = liveX * radius * lookTravel
+        val faceY = liveY * radius * (lookTravel * 0.86f)
+        val faceRotation = liveX * liveY * roll
 
         canvas.save()
         canvas.rotate(faceRotation, cx, cy)
         canvas.translate(faceX, faceY)
 
-        val eyeW = radius * 0.17f * e.sx
-        val eyeH = radius * 0.30f * e.sy
+        val eyeW = radius * 0.17f * eyeScale
+        val eyeH = radius * 0.30f * eyeScale
         val gap = radius * 0.39f
 
-        // Stronger perspective: the far eye narrows as the face turns.
+        // The farther eye narrows with horizontal perspective.
         val perspective = min(0.62f, abs(liveX) * 0.58f)
         val leftScale = 1f - perspective * if (liveX > 0f) 0.72f else 0.10f
         val rightScale = 1f - perspective * if (liveX < 0f) 0.72f else 0.10f
 
-        drawEye(
-            canvas,
-            cx - gap / 2f,
-            cy - radius * 0.20f,
-            eyeW,
-            eyeH * leftScale * blinkFactor
-        )
-        drawEye(
-            canvas,
-            cx + gap / 2f,
-            cy - radius * 0.20f,
-            eyeW,
-            eyeH * rightScale * blinkFactor
-        )
+        drawEye(canvas, cx - gap / 2f, cy - radius * 0.20f, eyeW, eyeH * leftScale * blinkFactor)
+        drawEye(canvas, cx + gap / 2f, cy - radius * 0.20f, eyeW, eyeH * rightScale * blinkFactor)
 
         canvas.restore()
         canvas.restore()
 
-        postInvalidateOnAnimation()
+        // 30 FPS is enough for a tiny mascot and avoids burning the phone for no reason.
+        postInvalidateDelayed(33L)
     }
 
     private fun rebuildShadersIfNeeded(cx: Float, cy: Float, radius: Float) {
@@ -235,7 +282,6 @@ class MascotView @JvmOverloads constructor(
 
     private fun drawEye(canvas: Canvas, x: Float, y: Float, w: Float, h: Float) {
         val safeH = h.coerceAtLeast(2f)
-        eyePaint.color = Color.WHITE
         canvas.drawRoundRect(
             x - w / 2f,
             y - safeH / 2f,
@@ -255,29 +301,8 @@ class MascotView @JvmOverloads constructor(
     }
 
     private fun scheduleNextBlink(now: Long) {
-        // Deterministic variation without allocations or Random objects per frame.
         val variation = 2400L + ((now / 173L) % 3200L)
         nextBlinkAt = now + variation
-    }
-
-    private data class E(
-        val sy: Float,
-        val tilt: Float,
-        val droop: Float,
-        val look: Float,
-        val sx: Float = 1f
-    )
-
-    private fun emotionParams(): E = when (emotion) {
-        "happy" -> E(.52f, 0f, -2f, 1.25f)
-        "surprised" -> E(1.25f, 0f, 0f, 1.45f, 1.10f)
-        "smirk" -> E(.82f, -10f, 0f, 1.10f)
-        "grin" -> E(.62f, 0f, 0f, 1.20f)
-        "shy" -> E(.68f, 10f, 3f, .78f)
-        "sad" -> E(.86f, 14f, 7f, .48f)
-        "angry" -> E(.80f, -18f, -1f, 1.18f)
-        "sleepy" -> E(.16f, 0f, 3f, .18f)
-        else -> E(1f, 0f, 0f, 1f)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -291,7 +316,7 @@ class MascotView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP -> {
-                blink()
+                hop()
                 targetX *= 0.18f
                 targetY *= 0.18f
                 performClick()
