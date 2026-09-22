@@ -29,6 +29,7 @@ class MascotView @JvmOverloads constructor(
     private var lookTravel = 0.22f
     private var eyeScale = 1f
     private var roll = 10f
+    private var frameIntervalMs = 33L
 
     private var gazeX = 0f
     private var gazeY = 0f
@@ -54,6 +55,7 @@ class MascotView @JvmOverloads constructor(
     private var cachedMid = 0
     private var cachedRim = 0
     private var cachedAura = 0
+    private var lastFrame = 0L
 
     init {
         isClickable = true
@@ -143,6 +145,12 @@ class MascotView @JvmOverloads constructor(
         super.onDraw(canvas)
 
         val now = System.currentTimeMillis()
+        if (lastFrame != 0L && now - lastFrame < frameIntervalMs) {
+            postInvalidateDelayed(frameIntervalMs - (now - lastFrame))
+            return
+        }
+        lastFrame = now
+
         val cx = width / 2f
         val cy = height / 2f
         val radius = min(width, height) * 0.30f
@@ -186,8 +194,8 @@ class MascotView @JvmOverloads constructor(
 
         if (gloss) {
             val lightAngle = if (lightAnimation) time * 0.42f else 0.35f
-            val lx = cx + cos(lightAngle) * radius * 0.34f
-            val ly = cy - radius * 0.42f + sin(lightAngle) * radius * 0.10f
+            val lx = cx + cos(lightAngle) * radius * 0.34f + liveLightX(radius, liveX)
+            val ly = cy - radius * 0.42f + sin(lightAngle) * radius * 0.10f + liveLightY(radius, liveY)
             canvas.drawOval(
                 lx - radius * 0.23f,
                 ly - radius * 0.13f,
@@ -214,17 +222,18 @@ class MascotView @JvmOverloads constructor(
         canvas.rotate(faceRotation, cx, cy)
         canvas.translate(faceX, faceY)
 
-        val eyeW = radius * 0.17f * eyeScale
-        val eyeH = radius * 0.30f * eyeScale
-        val gap = radius * 0.39f
+        val eyeW = radius * 0.20f * eyeScale
+        val eyeH = radius * 0.36f * eyeScale
+        val gap = radius * 0.42f
 
-        // The farther eye narrows with horizontal perspective.
-        val perspective = min(0.62f, abs(liveX) * 0.58f)
-        val leftScale = 1f - perspective * if (liveX > 0f) 0.72f else 0.10f
-        val rightScale = 1f - perspective * if (liveX < 0f) 0.72f else 0.10f
+        // The farther eye narrows strongly, while the near eye stays readable.
+        val perspective = min(0.70f, abs(liveX) * 0.72f)
+        val leftScale = 1f - perspective * if (liveX > 0f) 0.78f else 0.06f
+        val rightScale = 1f - perspective * if (liveX < 0f) 0.78f else 0.06f
+        val eyeTilt = liveX * 6f
 
-        drawEye(canvas, cx - gap / 2f, cy - radius * 0.20f, eyeW, eyeH * leftScale * blinkFactor)
-        drawEye(canvas, cx + gap / 2f, cy - radius * 0.20f, eyeW, eyeH * rightScale * blinkFactor)
+        drawEye(canvas, cx - gap / 2f, cy - radius * 0.20f, eyeW * leftScale, eyeH * blinkFactor, eyeTilt)
+        drawEye(canvas, cx + gap / 2f, cy - radius * 0.20f, eyeW * rightScale, eyeH * blinkFactor, eyeTilt)
 
         canvas.restore()
         canvas.restore()
@@ -280,17 +289,21 @@ class MascotView @JvmOverloads constructor(
         )
     }
 
-    private fun drawEye(canvas: Canvas, x: Float, y: Float, w: Float, h: Float) {
+    private fun drawEye(canvas: Canvas, x: Float, y: Float, w: Float, h: Float, rotation: Float = 0f) {
+        val safeW = w.coerceAtLeast(3f)
         val safeH = h.coerceAtLeast(2f)
+        canvas.save()
+        canvas.rotate(rotation, x, y)
         canvas.drawRoundRect(
-            x - w / 2f,
+            x - safeW / 2f,
             y - safeH / 2f,
-            x + w / 2f,
+            x + safeW / 2f,
             y + safeH / 2f,
-            w * 0.42f,
-            w * 0.42f,
+            safeW * 0.44f,
+            safeW * 0.44f,
             eyePaint
         )
+        canvas.restore()
     }
 
     private fun blinkFactor(now: Long): Float {
@@ -305,12 +318,19 @@ class MascotView @JvmOverloads constructor(
         nextBlinkAt = now + variation
     }
 
+    private fun liveLightX(radius: Float, gaze: Float): Float = gaze * radius * 0.12f
+
+    private fun liveLightY(radius: Float, gaze: Float): Float = gaze * radius * 0.08f
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 if (tracking) {
-                    targetX = ((event.x - width / 2f) / (width * 0.42f)).coerceIn(-1f, 1f)
-                    targetY = ((event.y - height / 2f) / (height * 0.42f)).coerceIn(-1f, 1f)
+                    val sphereRadius = min(width, height) * 0.30f
+                    val sphereCx = width / 2f
+                    val sphereCy = height / 2f
+                    targetX = ((event.x - sphereCx) / sphereRadius).coerceIn(-1f, 1f)
+                    targetY = ((event.y - sphereCy) / sphereRadius).coerceIn(-1f, 1f)
                 }
                 return true
             }
