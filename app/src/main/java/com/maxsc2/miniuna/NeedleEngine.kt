@@ -21,6 +21,7 @@ class NeedleEngine(
     private var model: Long = 0L
     private var nativeReady = false
     private var toolsJson: String? = null
+    private val androidTools = AndroidTools(context)
     private val appCatalog = InstalledAppCatalog(context)
     private var cachedAppPrompt = ""
     private var cachedAppPromptAt = 0L
@@ -95,20 +96,13 @@ class NeedleEngine(
 
         if (appMatch != null) {
             val app = appMatch.groupValues[1].trim()
-            val known = setOf(
-                "chrome", "хром", "google chrome",
-                "youtube", "ютуб",
-                "telegram", "телеграм",
-                "whatsapp", "ватсап",
-                "spotify", "спотифай",
-                "калькулятор"
-            )
-            if (app in known) {
+            val resolved = androidTools.resolveInstalledApp(app)
+            if (resolved != null) {
                 return IntentResult(
                     intent = "OPEN_APP",
                     confidence = 0.995f,
-                    arguments = mapOf("app" to app),
-                    reasoning = "deterministic app-launch fast path"
+                    arguments = mapOf("app" to resolved.label),
+                    reasoning = "installed-app catalog fast path"
                 )
             }
         }
