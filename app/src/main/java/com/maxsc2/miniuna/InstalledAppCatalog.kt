@@ -13,7 +13,12 @@ data class InstalledApp(
 
 class InstalledAppCatalog(private val context: Context) {
 
+    @Volatile private var cached: List<InstalledApp>? = null
+    @Volatile private var cachedAt = 0L
+
     fun list(): List<InstalledApp> {
+        val now = System.currentTimeMillis()
+        cached?.let { if (now - cachedAt < 30_000L) return it }
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return context.packageManager.queryIntentActivities(intent, 0)
             .mapNotNull { info: ResolveInfo ->
@@ -24,6 +29,7 @@ class InstalledAppCatalog(private val context: Context) {
             }
             .distinctBy { it.packageName }
             .sortedBy { it.label.lowercase(Locale.getDefault()) }
+            .also { cached = it; cachedAt = System.currentTimeMillis() }
     }
 
     fun resolve(userName: String): InstalledApp? {

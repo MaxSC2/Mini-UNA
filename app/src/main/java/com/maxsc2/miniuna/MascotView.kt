@@ -197,6 +197,10 @@ class MascotView @JvmOverloads constructor(
             postInvalidateDelayed(frameIntervalMs - (now - lastFrame))
             return
         }
+        if (lastFrame == 0L) {
+            // Fresh (re)start after being hidden: don't blink instantly.
+            nextBlinkAt = max(nextBlinkAt, now + 2000L)
+        }
         lastFrame = now
 
         val cx = width / 2f
@@ -392,8 +396,8 @@ class MascotView @JvmOverloads constructor(
     }
 
     private fun scheduleNextBlink(now: Long, gap: Float = 1f) {
-        val variation = 2400L + ((now / 173L) % 2200L)
-        nextBlinkAt = now + (variation * gap).toLong().coerceAtLeast(600L)
+        val variation = 3800L + ((now / 173L) % 2600L)
+        nextBlinkAt = now + (variation * gap).toLong().coerceAtLeast(1200L)
     }
 
     private fun drawXEye(canvas: Canvas, x: Float, y: Float, s: Float, rotation: Float = 0f) {
@@ -407,6 +411,12 @@ class MascotView @JvmOverloads constructor(
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
         // Restart the frame loop after returning from background.
+        if (visibility == VISIBLE) invalidate()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        // Restart the frame loop after tab switches (page GONE -> VISIBLE).
         if (visibility == VISIBLE) invalidate()
     }
 

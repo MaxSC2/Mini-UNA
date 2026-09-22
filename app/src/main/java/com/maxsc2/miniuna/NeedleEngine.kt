@@ -36,7 +36,9 @@ class NeedleEngine(
         // Needle remains the general router for commands outside this set.
         fastPath(text)?.let { return it }
 
-        if (!ensureNativeModel()) return fallback.classify(text)
+        // Never init on the calling (UI) thread: a failing nativeInit blocks
+        // for seconds and causes ANRs. Init happens only in warmupAsync.
+        if (!isNativeReady()) return fallback.classify(text)
 
         return try {
             val now = System.currentTimeMillis()
@@ -99,17 +101,37 @@ class NeedleEngine(
 
     fun warmupAsync(onDone: ((Boolean) -> Unit)? = null) {
         Thread {
-            val ok = try {
-                ensureNativeModel(force = true)
-            } catch (e: Throwable) {
-                lastError = "warmup: ${e.message}"
-                Log.w("MiniUNA-Needle", lastError)
-                false
-            }
-            Log.i("MiniUNA-Needle", "warmup ok=$ok status=$lastError")
-            try {
-                onDone?.invoke(ok)
-            } catch (_: Throwable) {
+            var delayMs = 10_000L
+            var lastOk: Boolean? = null
+            while (true) {
+                val ok = try {
+                    ensureNativeModel(force = true)
+                } catch (e: Throwable) {
+                    lastError = "warmup: ${e.message}"
+                    Log.w("MiniUNA-Needle", lastError)
+                    false
+                }
+                Log.i("MiniUNA-Needle", "warmup ok=$ok status=$lastError")
+                if (ok) {
+                    try {
+                        onDone?.invoke(true)
+                    } catch (_: Throwable) {
+                    }
+                    return@Thread
+                }
+                if (lastOk != false) {
+                    try {
+                        onDone?.invoke(false)
+                    } catch (_: Throwable) {
+                    }
+                }
+                lastOk = false
+                try {
+                    Thread.sleep(delayMs)
+                } catch (_: InterruptedException) {
+                    return@Thread
+                }
+                delayMs = (delayMs * 2).coerceAtMost(300_000L)
             }
         }.apply { isDaemon = true; start() }
     }

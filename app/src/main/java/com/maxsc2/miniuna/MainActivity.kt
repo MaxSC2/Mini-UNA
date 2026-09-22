@@ -258,11 +258,19 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
     private fun refreshAppCatalogStatus() {
-        val tools = AndroidTools(this)
-        val count = tools.appCount()
-        findViewById<TextView>(R.id.appCatalogStatus).text =
-            "Вижу " + count + " запускаемых приложений на устройстве. " +
-                "Needle получает их названия и может сопоставлять разговорные варианты вроде «ютуб» → YouTube."
+        Thread {
+            val count = try {
+                AndroidTools(this).appCount()
+            } catch (_: Throwable) {
+                -1
+            }
+            runOnUiThread {
+                if (count < 0) return@runOnUiThread
+                findViewById<TextView>(R.id.appCatalogStatus).text =
+                    "Вижу " + count + " запускаемых приложений на устройстве. " +
+                        "Needle получает их названия и может сопоставлять разговорные варианты вроде «ютуб» → YouTube."
+            }
+        }.apply { isDaemon = true; start() }
     }
 
     private fun applySavedMascotState() {
@@ -282,8 +290,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun refreshAppSummary() {
-        val catalog = InstalledAppCatalog(this)
-        findViewById<TextView>(R.id.appSummary).text = catalog.summary()
+        Thread {
+            val text = try {
+                InstalledAppCatalog(this).summary()
+            } catch (_: Throwable) {
+                null
+            }
+            runOnUiThread {
+                if (text != null) findViewById<TextView>(R.id.appSummary).text = text
+            }
+        }.apply { isDaemon = true; start() }
     }
 
     private fun showNoteComposer() {
