@@ -192,6 +192,14 @@ class MascotView @JvmOverloads constructor(
         canvas.scale(breathingScale, breathingScale, cx, cy)
         canvas.drawCircle(cx, cy, radius, spherePaint)
 
+        val desiredX = if (tracking) targetX else 0f
+        val desiredY = if (tracking) targetY else 0f
+        gazeX += (desiredX - gazeX) * 0.20f
+        gazeY += (desiredY - gazeY) * 0.20f
+
+        val liveX = gazeX + idleX * (1f - abs(gazeX))
+        val liveY = gazeY + idleY * (1f - abs(gazeY))
+
         if (gloss) {
             val lightAngle = if (lightAnimation) time * 0.42f else 0.35f
             val lx = cx + cos(lightAngle) * radius * 0.34f + liveLightX(radius, liveX)
@@ -204,14 +212,6 @@ class MascotView @JvmOverloads constructor(
                 glossPaint
             )
         }
-
-        val desiredX = if (tracking) targetX else 0f
-        val desiredY = if (tracking) targetY else 0f
-        gazeX += (desiredX - gazeX) * 0.20f
-        gazeY += (desiredY - gazeY) * 0.20f
-
-        val liveX = gazeX + idleX * (1f - abs(gazeX))
-        val liveY = gazeY + idleY * (1f - abs(gazeY))
 
         // The sphere stays round. Only the face travels across its surface.
         val faceX = liveX * radius * lookTravel
