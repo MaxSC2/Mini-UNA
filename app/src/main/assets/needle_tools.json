@@ -184,8 +184,15 @@
     "type": "function",
     "function": {
       "name": "play_music",
-      "description": "Play music: open the user's music app (Spotify, Yandex Music, YouTube Music or system player) and start playback. Use for requests like play music, turn on music.",
-      "parameters": {"type": "object", "properties": {}, "required": []}
+      "description": "Play music: open the user's music app (Spotify, Yandex Music, YouTube Music or system player) and start playback. Use for requests like play music, turn on music. Optional playlist name is passed to the NeonWave player.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {"type": "string"},
+          "playlist": {"type": "string"}
+        },
+        "required": []
+      }
     }
   },
   {
@@ -262,6 +269,21 @@
       "name": "stop_listening",
       "description": "Turn off always-on hotword listening.",
       "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "remind",
+      "description": "Set a reminder: notify with the given text after the given number of seconds.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "seconds": {"type": "integer", "minimum": 10},
+          "text": {"type": "string"}
+        },
+        "required": ["seconds"]
+      }
     }
   },
   {

@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -464,9 +465,38 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        val responses = allowed.map { executeOrHelp(it) }
-        respond(responses.joinToString(" "))
-        updateModelStatus()
+        // Параллельное исполнение: независимые действия идут разом (пул 3),
+        // системная навигация (назад/домой/...) — строго по порядку.
+        // Весь блок уже вне UI-потока (см. handle), UI трогаем только в конце.
+        status.text = "MINI-UNA  •  выполняю…"
+        background.execute {
+            val sys = setOf("BACK", "HOME", "RECENTS", "LOCK_SCREEN")
+            val pool = Executors.newFixedThreadPool(3)
+            val out = java.util.concurrent.ConcurrentHashMap<Int, String>()
+            try {
+                val jobs = allowed.mapIndexed { i, r ->
+                    pool.submit {
+                        if (r.intent !in sys) out[i] = executeOrHelp(r)
+                    }
+                }
+                jobs.forEach {
+                    try {
+                        it.get(30, TimeUnit.SECONDS)
+                    } catch (_: Throwable) {
+                    }
+                }
+                allowed.forEachIndexed { i, r ->
+                    if (r.intent in sys && !out.containsKey(i)) out[i] = executeOrHelp(r)
+                }
+            } finally {
+                pool.shutdown()
+            }
+            val responses = allowed.indices.mapNotNull { out[it] }
+            runOnUiThread {
+                respond(if (responses.isNotEmpty()) responses.joinToString(" ") else "Не получилось выполнить.")
+                updateModelStatus()
+            }
+        }
     }
 
     private fun showMultiConfirmation(allowed: List<IntentResult>, rest: List<IntentResult>) {

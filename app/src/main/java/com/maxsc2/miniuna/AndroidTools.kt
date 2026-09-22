@@ -268,12 +268,49 @@ class AndroidTools(private val context: Context) {
         }
     }
 
-    fun playMusic(): String {
-        val app = musicPriority.firstNotNullOfOrNull { hint -> resolveInstalledApp(hint) }
+    fun neonPlay(playlist: String? = null): Boolean {
+        return try {
+            val intent = Intent("com.example.audio_player.AUTOPLAY").apply {
+                setClassName("com.example.audio_player", "com.example.audio_player.MainActivity")
+                if (!playlist.isNullOrBlank()) putExtra("playlist", playlist)
+                putExtra("source", "mini-una")
+            }
+            context.startActivity(intent)
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun isNeonInstalled(): Boolean = try {
+        context.packageManager.getPackageInfo("com.example.audio_player", 0)
+        true
+    } catch (_: Throwable) {
+        false
+    }
+
+    fun playMusic(app: String? = null, playlist: String? = null): String {
+        val query = app?.trim().orEmpty()
+        // NeonWave — наш плеер: мост автовоспроизведения (без задержек в плеере).
+        val wantsNeon = playlist != null ||
+            query.isBlank() ||
+            query.contains("неон", ignoreCase = true) ||
+            query.contains("neon", ignoreCase = true)
+        if (wantsNeon && isNeonInstalled()) {
+            if (neonPlay(playlist)) {
+                return if (playlist.isNullOrBlank()) "Включаю музыку в NeonWave."
+                else "Включаю плейлист «$playlist» в NeonWave."
+            }
+            // Мост не встал (старый NeonWave?) — дальше общий путь.
+        }
+
+        val target = if (query.isNotBlank()) query else "музыку"
+        val resolved = resolveInstalledApp(target)
+            ?: musicPriority.firstNotNullOfOrNull { hint -> resolveInstalledApp(hint) }
             ?: return "Не нашла музыкальное приложение. Установи NeonWave, Spotify или Яндекс Музыку."
 
         return try {
-            context.packageManager.getLaunchIntentForPackage(app.packageName)?.let {
+            context.packageManager.getLaunchIntentForPackage(resolved.packageName)?.let {
                 it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(it)
             }
@@ -295,9 +332,9 @@ class AndroidTools(private val context: Context) {
                 } catch (_: Throwable) {
                 }
             }.apply { isDaemon = true; start() }
-            "Включаю музыку в " + app.label + "."
+            "Включаю музыку в " + resolved.label + "."
         } catch (_: Throwable) {
-            "Не получилось открыть «" + app.label + "»."
+            "Не получилось открыть «" + resolved.label + "»."
         }
     }
 
@@ -439,6 +476,29 @@ class AndroidTools(private val context: Context) {
             "Прослушка выключена."
         } catch (_: Throwable) {
             "Не получилось выключить прослушку."
+        }
+    }
+
+    fun remind(text: String, secondsFromNow: Int): String {
+        val secs = secondsFromNow.coerceIn(10, 24 * 60 * 60)
+        return try {
+            val id = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
+            val intent = Intent(context, ReminderReceiver::class.java).apply {
+                putExtra("text", text.ifBlank { "Напоминание!" })
+                putExtra("id", id)
+            }
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                android.app.PendingIntent.FLAG_IMMUTABLE
+            val pi = android.app.PendingIntent.getBroadcast(context, id, intent, flags)
+            val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            am.set(
+                android.app.AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + secs * 1000L,
+                pi
+            )
+            "Напомню через " + formatDuration(secs) + ": «" + text.ifBlank { "без текста" } + "»."
+        } catch (_: Throwable) {
+            "Не получилось поставить напоминание."
         }
     }
 

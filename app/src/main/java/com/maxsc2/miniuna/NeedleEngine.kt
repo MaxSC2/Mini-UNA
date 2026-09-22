@@ -17,7 +17,7 @@ class NeedleEngine(
             "CALCULATE", "SAVE_NOTE",
             "SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS",
             "NOTIF_FOLLOW", "NOTIF_UNFOLLOW",
-            "YOUTUBE_SEARCH", "TG_SHARE"
+            "YOUTUBE_SEARCH", "TG_SHARE", "REMIND"
         )
     }
 
@@ -246,6 +246,18 @@ class NeedleEngine(
             return IntentResult("PLAY_MUSIC", 0.995f, reasoning = "deterministic music fast path")
         }
 
+        val playlistMatch = Regex(".*включи плейлист\\s+(.+?)\\s*[.!?]?$").find(t)
+        if (playlistMatch != null) {
+            val pl = playlistMatch.groupValues[1].trim()
+            if (pl.isNotEmpty()) {
+                return IntentResult(
+                    "PLAY_MUSIC", 0.99f,
+                    mapOf("app" to "NeonWave", "playlist" to pl),
+                    reasoning = "deterministic playlist fast path"
+                )
+            }
+        }
+
         if (
             t.contains("следующий трек") ||
             t.contains("следующая песня") ||
@@ -259,6 +271,55 @@ class NeedleEngine(
             t.contains("предыдущая песня")
         ) {
             return IntentResult("MEDIA_PREV", 0.995f, reasoning = "deterministic music fast path")
+        }
+
+        if (t.startsWith("напомни ")) {
+            val body = raw.trim().substringAfter("напомни ").trim()
+            var secs: Int? = null
+            var text = body
+            val throughM = Regex("(?i)^через\\s+(.+)$").find(body)
+            if (throughM != null) {
+                val rest = throughM.groupValues[1].trim()
+                secs = parseDurationSec(rest)
+                if (secs == null) {
+                    val low = rest.lowercase(Locale.getDefault())
+                    secs = when {
+                        low.contains("час") -> 3600
+                        low.contains("мин") -> 60
+                        low.contains("сек") -> 1
+                        low.contains("день") || low.contains("дня") || low.contains("сут") -> 86400
+                        else -> null
+                    }
+                }
+                if (secs != null) {
+                    text = Regex("(?i)^(\\S+\\s+){1,3}").find(rest)
+                        ?.let { rest.substring(it.value.length) }?.trim().orEmpty()
+                }
+            } else {
+                val atM = Regex("(?i)^в\\s+(\\d{1,2})[:.](\\d{2})\\s*(.*)$").find(body)
+                if (atM != null) {
+                    val h = atM.groupValues[1].toInt()
+                    val m = atM.groupValues[2].toInt()
+                    if (h in 0..23 && m in 0..59) {
+                        val now = java.util.Calendar.getInstance()
+                        val target = (now.clone() as java.util.Calendar).apply {
+                            set(java.util.Calendar.HOUR_OF_DAY, h)
+                            set(java.util.Calendar.MINUTE, m)
+                            set(java.util.Calendar.SECOND, 0)
+                        }
+                        if (!target.after(now)) target.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                        secs = ((target.timeInMillis - now.timeInMillis) / 1000).toInt()
+                        text = atM.groupValues[3].trim()
+                    }
+                }
+            }
+            if (secs != null) {
+                return IntentResult(
+                    "REMIND", 0.97f,
+                    mapOf("seconds" to secs.toString(), "text" to text),
+                    reasoning = "deterministic remind fast path"
+                )
+            }
         }
 
         if (
@@ -576,6 +637,7 @@ class NeedleEngine(
             "unfollow_notifications" -> "NOTIF_UNFOLLOW"
             "youtube_search" -> "YOUTUBE_SEARCH"
             "send_telegram" -> "TG_SHARE"
+            "remind" -> "REMIND"
             "go_back" -> "BACK"
             "go_home" -> "HOME"
             "open_recents" -> "RECENTS"

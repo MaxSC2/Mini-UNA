@@ -30,6 +30,11 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("GET_TIME", 0.99f)
             t.contains("дата") || t.contains("какое сегодня число") || t.contains("число сегодня") ->
                 IntentResult("GET_DATE", 0.99f)
+            t.startsWith("включи плейлист ") ->
+                IntentResult(
+                    "PLAY_MUSIC", 0.93f,
+                    mapOf("app" to "NeonWave", "playlist" to raw.substringAfter("включи плейлист ").trim())
+                )
             t.startsWith("открой ") || t.startsWith("запусти ") || t.startsWith("открой приложение ") ->
                 IntentResult("OPEN_APP", 0.90f, mapOf("app" to raw.substringAfter(" ").trim()))
             t.startsWith("настройки") || t.contains("открой настройки") ->
@@ -70,6 +75,8 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("VOLUME_DOWN", 0.95f)
             t.contains("без звука") || t.contains("убери звук") ->
                 IntentResult("VOLUME_MUTE", 0.95f)
+            t.startsWith("напомни ") ->
+                IntentResult("REMIND", 0.9f, mapOf("seconds" to "", "text" to raw.substringAfter("напомни ").trim()))
             t.contains("что на экране") || t.contains("прочитай экран") ->
                 IntentResult("SCREEN_READ", 0.95f)
             t.contains("прочитай уведомления") || t.contains("покажи уведомления") ||

@@ -121,6 +121,8 @@ object SlotHelper {
         }
         "SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS" ->
             if (args.values.all { it.isBlank() }) listOf("duration") else emptyList()
+        "REMIND" ->
+            if (args["seconds"].isNullOrBlank()) listOf("delay") else emptyList()
         else -> emptyList()
     }
 
@@ -128,6 +130,7 @@ object SlotHelper {
         "time" -> "Во сколько поставить будильник?"
         "days" -> "На какие дни поставить: будни, выходные или каждый день?"
         "duration" -> "На сколько поставить таймер?"
+        "delay" -> "Через сколько напомнить?"
         else -> "Уточни, пожалуйста."
     }
 
