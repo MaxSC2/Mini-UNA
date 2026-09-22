@@ -288,7 +288,7 @@
                         android:layout_height="wrap_content"/>
                 </LinearLayout>
 
-                <TextView style="@style/SettingLabel" android:text="Дальность взгляда"/>
+                <TextView style="@style/ControlLabel" android:text="Дальность взгляда"/>
                 <SeekBar
                     android:id="@+id/seekLook"
                     android:layout_width="match_parent"
@@ -296,7 +296,7 @@
                     android:max="100"
                     android:progress="55"/>
 
-                <TextView style="@style/SettingLabel" android:text="Размер глаз"/>
+                <TextView style="@style/ControlLabel" android:text="Размер глаз"/>
                 <SeekBar
                     android:id="@+id/seekEyes"
                     android:layout_width="match_parent"
@@ -304,7 +304,7 @@
                     android:max="100"
                     android:progress="50"/>
 
-                <TextView style="@style/SettingLabel" android:text="Поворот лица"/>
+                <TextView style="@style/ControlLabel" android:text="Поворот лица"/>
                 <SeekBar
                     android:id="@+id/seekRoll"
                     android:layout_width="match_parent"
