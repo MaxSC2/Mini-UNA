@@ -66,6 +66,14 @@
         <item name="android:paddingStart">12dp</item>
         <item name="android:paddingEnd">12dp</item>
     </style>
+    <style name="ControlLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#AAA7BB</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:layout_marginBottom">2dp</item>
+    </style>
     <style name="QuickButton" parent="Widget.AppCompat.Button.Borderless">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">42dp</item>
