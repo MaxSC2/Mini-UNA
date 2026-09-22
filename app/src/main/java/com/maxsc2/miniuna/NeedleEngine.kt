@@ -17,6 +17,7 @@ class NeedleEngine(
     companion object {
         private const val CONFIDENCE_THRESHOLD = 0.70f
         private const val BUFFER_SIZE = 1024 * 1024
+        private const val INIT_RETRY_COOLDOWN_MS = 60_000L
     }
 
     private var model: Long = 0L
@@ -99,7 +100,7 @@ class NeedleEngine(
     fun warmupAsync(onDone: ((Boolean) -> Unit)? = null) {
         Thread {
             val ok = try {
-                ensureNativeModel()
+                ensureNativeModel(force = true)
             } catch (e: Throwable) {
                 lastError = "warmup: ${e.message}"
                 Log.w("MiniUNA-Needle", lastError)
@@ -387,8 +388,16 @@ class NeedleEngine(
         )
     }
 
-    private fun ensureNativeModel(): Boolean {
+    private fun ensureNativeModel(force: Boolean = false): Boolean {
         if (nativeReady && model != 0L) return true
+
+        // Don't hammer a failing init on the UI thread: at most one attempt
+        // per cooldown window. Background warmup bypasses with force=true.
+        if (!force) {
+            val now = System.currentTimeMillis()
+            if (now - lastInitAttemptAt < INIT_RETRY_COOLDOWN_MS) return false
+            lastInitAttemptAt = now
+        }
 
         synchronized(initLock) {
             if (nativeReady && model != 0L) return true
@@ -433,6 +442,7 @@ class NeedleEngine(
     }
 
     @Volatile private var initRetried = false
+    @Volatile private var lastInitAttemptAt = 0L
 
     private fun copyModel(modelFile: File): Boolean {
         if (modelFile.exists() && modelFile.length() > 0L) return true

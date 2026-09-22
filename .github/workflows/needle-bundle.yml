@@ -1,0 +1,67 @@
+name: Needle bundle experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      bits:
+        description: "CQ bits (1|2|3|4)"
+        default: "4"
+      model:
+        description: "HuggingFace model id"
+        default: "Cactus-Compute/needle3"
+
+# Does NOT touch the main APK pipeline. Goal: learn what
+# `cactus download` produces for needle3 (bundle layout for cactus_init).
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Fetch cactus CLI
+        run: |
+          git clone --depth 1 https://github.com/cactus-compute/cactus.git /tmp/cactus
+          cd /tmp/cactus
+          source ./setup
+          pip install "cactus-compute[convert]"
+          cactus --help
+
+      - name: Download needle3 bundle
+        run: |
+          source /tmp/cactus/venv/bin/activate
+          cactus download "${{ inputs.model }}" --bits "${{ inputs.bits }}" || true
+          echo "--- cactus list ---"
+          cactus list || true
+          echo "--- hunt for bundles ---"
+          find /tmp/cactus /root/.cache /home/runner/.cache -maxdepth 6 \
+            \( -name "config.txt" -o -name "manifest.json" \) 2>/dev/null | head -n 30
+
+      - name: Pack bundle if found
+        run: |
+          BUNDLE=$(find /tmp/cactus /root/.cache /home/runner/.cache -maxdepth 7 \
+            -path "*components/manifest.json" 2>/dev/null | head -n 1 | xargs -r dirname | xargs -r dirname || true)
+          if [ -z "${BUNDLE:-}" ]; then
+            echo "NO_BUNDLE_FOUND" > "$GITHUB_WORKSPACE/bundle-result.txt"
+            find /tmp/cactus -maxdepth 4 -type d -name "*needle*" 2>/dev/null | head
+            find /root/.cache /home/runner/.cache -maxdepth 5 -type d -iname "*cactus*" 2>/dev/null | head
+          else
+            echo "BUNDLE=$BUNDLE" | tee "$GITHUB_WORKSPACE/bundle-result.txt"
+            find "$BUNDLE" -type f | head -n 50
+            du -sh "$BUNDLE"
+            tar -czf "$GITHUB_WORKSPACE/needle-bundle.tgz" -C "$(dirname "$BUNDLE")" "$(basename "$BUNDLE")"
+          fi
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: needle-bundle experiment
+          path: |
+            bundle-result.txt
+            needle-bundle.tgz
+          if-no-files-found: warn

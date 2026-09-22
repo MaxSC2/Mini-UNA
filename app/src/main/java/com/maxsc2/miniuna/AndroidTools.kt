@@ -16,6 +16,9 @@ class AndroidTools(private val context: Context) {
     private val audioManager =
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
+    @Volatile private var cachedApps: List<InstalledApp>? = null
+    @Volatile private var cachedAppsAt = 0L
+
     data class InstalledApp(
         val label: String,
         val packageName: String
@@ -49,6 +52,8 @@ class AndroidTools(private val context: Context) {
     )
 
     fun installedApps(): List<InstalledApp> {
+        val now = System.currentTimeMillis()
+        cachedApps?.let { if (now - cachedAppsAt < 30_000L) return it }
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return context.packageManager
             .queryIntentActivities(intent, 0)
@@ -63,6 +68,7 @@ class AndroidTools(private val context: Context) {
             .filter { it.packageName != context.packageName }
             .sortedBy { normalize(it.label) }
             .toList()
+            .also { cachedApps = it; cachedAppsAt = System.currentTimeMillis() }
     }
 
     fun appCount(): Int = installedApps().size

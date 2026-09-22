@@ -279,16 +279,12 @@ class MascotView @JvmOverloads constructor(
         canvas.rotate(faceRotation, cx, cy)
         canvas.translate(faceX, faceY)
 
-        // Reference measurements: eye centers ~27% of diameter apart, ~36% from top.
         val eyeW = radius * 0.21f * eyeScale
-        val eyeH = radius * 0.40f * eyeScale * curSY
-        val gap = radius * 0.54f
+        val eyeH = radius * 0.48f * eyeScale * curSY
+        val gap = radius * 0.64f
         val eyeY = cy - radius * 0.28f
 
-        // The farther eye narrows strongly, while the near eye stays readable.
-        val perspective = min(0.70f, abs(liveX) * 0.72f)
-        val leftScale = 1f - perspective * if (liveX > 0f) 0.78f else 0.06f
-        val rightScale = 1f - perspective * if (liveX < 0f) 0.78f else 0.06f
+        // No perspective deformation: both eyes keep their shape on turn.
         val eyeTilt = liveX * 6f + curTilt
 
         if (curBlush > 0.02f) {
@@ -307,8 +303,8 @@ class MascotView @JvmOverloads constructor(
             drawXEye(canvas, cx - gap / 2f, eyeY, s, eyeTilt)
             drawXEye(canvas, cx + gap / 2f, eyeY, s, eyeTilt)
         } else {
-            drawEye(canvas, cx - gap / 2f, eyeY, eyeW * leftScale, eyeH * blinkFactor, eyeTilt)
-            drawEye(canvas, cx + gap / 2f, eyeY, eyeW * rightScale, eyeH * blinkFactor, eyeTilt)
+            drawEye(canvas, cx - gap / 2f, eyeY, eyeW, eyeH * blinkFactor, eyeTilt)
+            drawEye(canvas, cx + gap / 2f, eyeY, eyeW, eyeH * blinkFactor, eyeTilt)
         }
 
         if (emo.sleepy) {
