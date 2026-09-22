@@ -16,7 +16,7 @@ on:
 jobs:
   bundle:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,22 +28,30 @@ jobs:
           git clone --depth 1 https://github.com/cactus-compute/cactus.git /tmp/cactus
           cd /tmp/cactus
           source ./setup
-          pip install "cactus-compute[convert]"
+          # Convert toolchain WITHOUT replacing the local cactus install:
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install transformers safetensors huggingface_hub
           cactus --help
 
-      - name: Download needle3 bundle
+      - name: Convert needle3 from local snapshot
         run: |
           source /tmp/cactus/venv/bin/activate
-          cactus download "${{ inputs.model }}" --bits "${{ inputs.bits }}" || true
+          python -c "from huggingface_hub import snapshot_download; print(snapshot_download('${{ inputs.model }}', local_dir='/tmp/needle3-hf'))"
+          echo "--- snapshot layout ---"
+          find /tmp/needle3-hf -maxdepth 2 | head -n 30
+          du -sh /tmp/needle3-hf
+          # Convert expects model.safetensors at root; the repo keeps it under checkpoints/.
+          cp /tmp/needle3-hf/checkpoints/needle3.safetensors /tmp/needle3-hf/model.safetensors
+          cactus convert /tmp/needle3-hf /tmp/needle-bundle --bits "${{ inputs.bits }}" --skip-model-load || true
           echo "--- cactus list ---"
           cactus list || true
           echo "--- hunt for bundles ---"
-          find /tmp/cactus /root/.cache /home/runner/.cache -maxdepth 6 \
+          find /tmp/cactus /tmp/needle-bundle /root/.cache /home/runner/.cache -maxdepth 6 \
             \( -name "config.txt" -o -name "manifest.json" \) 2>/dev/null | head -n 30
 
       - name: Pack bundle if found
         run: |
-          BUNDLE=$(find /tmp/cactus /root/.cache /home/runner/.cache -maxdepth 7 \
+          BUNDLE=$(find /tmp/cactus /tmp/needle-bundle /root/.cache /home/runner/.cache -maxdepth 7 \
             -path "*components/manifest.json" 2>/dev/null | head -n 1 | xargs -r dirname | xargs -r dirname || true)
           if [ -z "${BUNDLE:-}" ]; then
             echo "NO_BUNDLE_FOUND" > "$GITHUB_WORKSPACE/bundle-result.txt"
