@@ -57,6 +57,11 @@ jobs:
             "https://huggingface.co/Cactus-Compute/needle3/resolve/main/android-arm64/needle?download=true" \
             -o app/src/main/assets/needle
           test -s app/src/main/assets/needle
+          # Дублируем в jniLibs как libneedle.so: установщик сохраняет
+          # exec-права в nativeLibraryDir (надёжнее filesDir на части прошивок).
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp app/src/main/assets/needle app/src/main/jniLibs/arm64-v8a/libneedle.so
+          ls -la app/src/main/jniLibs/arm64-v8a/
 
       - name: Set up signing keystore
         run: |

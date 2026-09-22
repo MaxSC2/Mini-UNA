@@ -16,6 +16,7 @@ class NeedleServer(private val context: Context) {
     companion object {
         const val PORT = 18123
         private const val BINARY_NAME = "needle"
+        private const val NATIVE_LIB_NAME = "libneedle.so"
         private const val MODEL_NAME = "needle3.cact"
         private const val TOOLS_NAME = "needle_tools.json"
         private const val START_TIMEOUT_MS = 90_000L
@@ -27,6 +28,7 @@ class NeedleServer(private val context: Context) {
     private val lock = Any()
     private val callLock = Any()
     private var process: Process? = null
+    private var binaryPath: String? = null
 
     fun isAlive(): Boolean {
         synchronized(lock) {
@@ -45,10 +47,15 @@ class NeedleServer(private val context: Context) {
             if (isAlive() && isPortOpen()) return true
             stopLocked()
             if (!stageFiles()) return false
+            val bin = binaryPath ?: run {
+                lastError = "нет файлов needle в APK"
+                Log.w("MiniUNA-Needle", lastError)
+                return false
+            }
             return try {
                 val dir = context.filesDir
                 val proc = ProcessBuilder(
-                    File(dir, BINARY_NAME).absolutePath,
+                    bin,
                     "--model", File(dir, MODEL_NAME).absolutePath,
                     "--tools", File(dir, TOOLS_NAME).absolutePath,
                     "--serve", "--port", PORT.toString()
@@ -78,15 +85,13 @@ class NeedleServer(private val context: Context) {
 
     private fun stageFiles(): Boolean {
         return try {
+            val bin = resolveBinary()
+            if (bin == null) {
+                // resolveBinary уже выставил точный lastError.
+                return false
+            }
+            binaryPath = bin.absolutePath
             val dir = context.filesDir
-            // Binary: always refresh (1.2 MB), must be executable.
-            val bin = File(dir, BINARY_NAME)
-            context.assets.open(BINARY_NAME).use { input ->
-                FileOutputStream(bin).use { output -> input.copyTo(output) }
-            }
-            if (!bin.setExecutable(true)) {
-                Log.w("MiniUNA-Needle", "setExecutable вернул false")
-            }
             // Tools: always refresh (tiny).
             context.assets.open(TOOLS_NAME).use { input ->
                 FileOutputStream(File(dir, TOOLS_NAME)).use { output -> input.copyTo(output) }
@@ -103,6 +108,46 @@ class NeedleServer(private val context: Context) {
             lastError = "нет файлов needle в APK: ${e.message}"
             Log.w("MiniUNA-Needle", lastError)
             false
+        }
+    }
+
+    private fun resolveBinary(): File? {
+        // Шаг 1. Native lib dir: установщик сохраняет exec-права, это самый
+        // надёжный источник (некоторые прошивки режут exec из filesDir).
+        try {
+            val native = File(context.applicationInfo.nativeLibraryDir, NATIVE_LIB_NAME)
+            if (native.exists()) {
+                try {
+                    native.setExecutable(true)
+                } catch (_: Throwable) {
+                }
+                if (native.canExecute()) return native
+                Log.w("MiniUNA-Needle", "libneedle.so не запускаемый: ${native.absolutePath}")
+            }
+        } catch (_: Throwable) {
+        }
+        // Шаг 2. Копия из assets в filesDir (нужен chmod; может не сработать).
+        return try {
+            val bin = File(context.filesDir, BINARY_NAME)
+            context.assets.open(BINARY_NAME).use { input ->
+                FileOutputStream(bin).use { output -> input.copyTo(output) }
+            }
+            try {
+                bin.setExecutable(true)
+            } catch (_: Throwable) {
+            }
+            if (bin.canExecute()) {
+                bin
+            } else {
+                lastError = "бинарь needle не запускаемый (canExecute=false): " +
+                    "прошивка запрещает exec из данных приложения"
+                Log.w("MiniUNA-Needle", lastError)
+                null
+            }
+        } catch (e: Throwable) {
+            lastError = "нет файлов needle в APK: ${e.message}"
+            Log.w("MiniUNA-Needle", lastError)
+            null
         }
     }
 
