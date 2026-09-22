@@ -230,7 +230,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (requestCode != voiceRequest) return
 
         mascot.setEmotion(prefs.getString("emotion", "neutral") ?: "neutral")
-        status.text = "MINI-UNA  •  local + Needle"
+        status.text = "MINI-UNA  •  обработка команды"
 
         val text = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (text.isNullOrBlank()) {
@@ -269,8 +269,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     }
                 }
 
-                if (response == null) respond("Инструмент не подключён.")
-                else respond(response)
+                if (response == null) {
+                    respond("Инструмент для «" + result.intent + "» не подключён.")
+                } else {
+                    respond(response)
+                }
             }
         }
 
@@ -303,12 +306,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun updateModelStatus() {
         val native = (intentEngine as? NeedleEngine)?.isNativeReady() == true
-        findViewById<TextView>(R.id.modelStatus).text =
-            if (native) {
-                "Needle 3: native Cactus runtime активен. Confidence gate: 0.70. Fallback: LocalIntentEngine."
-            } else {
-                "Needle 3: native runtime недоступен. Работаю через deterministic fallback."
-            }
+        val modelText = if (native) {
+            "Needle 3: native Cactus runtime активен. Confidence gate: 0.70. Fast paths: активны."
+        } else {
+            "Needle 3: native runtime недоступен. Работаю через deterministic fast paths + fallback."
+        }
+        findViewById<TextView>(R.id.modelStatus).text = modelText
+        if (!status.text.toString().contains("слушаю")) {
+            status.text = if (native) "MINI-UNA  •  local + Needle" else "MINI-UNA  •  local fast paths"
+        }
     }
 
     private fun refreshNote() {
