@@ -8,7 +8,7 @@ on:
         default: "4"
       model:
         description: "HuggingFace model id"
-        default: "Cactus-Compute/needle3"
+        default: "Cactus-Compute/needle-hf"
 
 # Does NOT touch the main APK pipeline. Goal: learn what
 # `cactus download` produces for needle3 (bundle layout for cactus_init).
@@ -33,19 +33,12 @@ jobs:
           pip install transformers safetensors huggingface_hub
           cactus --help
 
-      - name: Convert needle3 from local snapshot
+      - name: Convert needle bundle
         run: |
           source /tmp/cactus/venv/bin/activate
-          python -c "from huggingface_hub import snapshot_download; print(snapshot_download('${{ inputs.model }}', local_dir='/tmp/needle3-hf'))"
-          echo "--- snapshot layout ---"
-          find /tmp/needle3-hf -maxdepth 2 | head -n 30
-          du -sh /tmp/needle3-hf
-          # Convert expects model.safetensors + tokenizer files at root;
-          # the repo keeps them under checkpoints/ and tokenizer/.
-          cp /tmp/needle3-hf/checkpoints/needle3.safetensors /tmp/needle3-hf/model.safetensors
-          cp /tmp/needle3-hf/tokenizer/* /tmp/needle3-hf/ || true
-          ls /tmp/needle3-hf/*.model /tmp/needle3-hf/*.safetensors /tmp/needle3-hf/*.vocab 2>/dev/null
-          cactus convert /tmp/needle3-hf /tmp/needle-bundle --bits "${{ inputs.bits }}" || true
+          # needle-hf has the standard convert-friendly layout
+          # (model.safetensors + modeling code + tokenizer at root).
+          cactus convert "${{ inputs.model }}" /tmp/needle-bundle --bits "${{ inputs.bits }}" || true
           echo "--- cactus list ---"
           cactus list || true
           echo "--- hunt for bundles ---"
