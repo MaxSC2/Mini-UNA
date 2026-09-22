@@ -34,7 +34,7 @@
                 android:id="@+id/homeTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Я здесь."
+                android:text="Привет. Я Mini-UNA."
                 android:textColor="@color/text_primary"
                 android:textSize="27sp"
                 android:textStyle="bold"
@@ -45,7 +45,7 @@
                 android:id="@+id/homeSubtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Локальный помощник на устройстве"
+                android:text="Локальный помощник. Работаю прямо на телефоне."
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
                 android:gravity="center"
@@ -64,7 +64,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="48dp"
-                android:text="Нажми микрофон и дай команду."
+                android:text="Я слушаю. Можно сказать: «открой YouTube», «поставь таймер на 10 минут» или «сохрани заметку»."
+
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:gravity="center"
@@ -72,6 +73,30 @@
                 android:paddingEnd="12dp"
                 android:paddingTop="6dp"
                 android:paddingBottom="8dp"/>
+
+            <LinearLayout
+                android:id="@+id/quickActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/quickTime"
+                    style="@style/QuickButton"
+                    android:text="Время"/>
+
+                <Button
+                    android:id="@+id/quickApps"
+                    style="@style/QuickButton"
+                    android:text="Приложения"/>
+
+                <Button
+                    android:id="@+id/quickNote"
+                    style="@style/QuickButton"
+                    android:text="Заметка"/>
+            </LinearLayout>
 
             <Button
                 android:id="@+id/mic"
@@ -99,9 +124,17 @@
             <TextView style="@style/PageTitle" android:text="Инструменты"/>
             <TextView style="@style/PageSubtitle" android:text="Локальные действия и состояние Needle."/>
             <TextView
+                android:id="@+id/appSummary"
+                style="@style/PanelText"
+                android:text="Загрузка списка установленных приложений…"/>
+
+            <TextView
                 android:id="@+id/toolStatus"
                 style="@style/PanelText"
-                android:text="✓ Needle 3 + confidence gate&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
+                android:text="✓ Needle 3 + confidence gate
+✓ Список установленных приложений
+✓ Понимание названий: «ютуб» → YouTube
+&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
 
             <Button
                 android:id="@+id/testTool"
