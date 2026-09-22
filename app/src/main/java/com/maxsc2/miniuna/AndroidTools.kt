@@ -12,6 +12,7 @@ import kotlin.math.roundToInt
 
 class AndroidTools(private val context: Context) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val appCatalog = InstalledAppCatalog(context)
 
     private val appPackages = mapOf(
         "telegram" to "org.telegram.messenger",
@@ -31,36 +32,33 @@ class AndroidTools(private val context: Context) {
     )
 
     fun openApp(name: String): String {
-        val normalized = name.trim().lowercase(Locale.getDefault())
-        val packageName = appPackages[normalized] ?: normalized.takeIf { it.contains('.') }
+        val requested = name.trim()
+        val app = appCatalog.resolve(requested)
 
+        if (app != null) {
+            val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launch)
+                return "Открываю ${app.label}."
+            }
+        }
+
+        val normalized = requested.lowercase(Locale.getDefault())
+        val packageName = appPackages[normalized] ?: normalized.takeIf { it.contains('.') }
         if (packageName != null) {
             val launch = context.packageManager.getLaunchIntentForPackage(packageName)
             if (launch != null) {
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launch)
-                return "Открываю " + name + "."
+                return "Открываю $requested."
             }
         }
 
-        val byLabel = context.packageManager.getInstalledApplications(0)
-            .firstOrNull { app ->
-                context.packageManager.getApplicationLabel(app).toString()
-                    .lowercase(Locale.getDefault()) == normalized
-            }
-
-        val byLabelIntent = byLabel?.let {
-            context.packageManager.getLaunchIntentForPackage(it.packageName)
-        }
-
-        if (byLabelIntent != null) {
-            byLabelIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(byLabelIntent)
-            return "Открываю " + name + "."
-        }
-
-        return "Не нашла приложение «" + name + "»."
+        return "Не нашла установленное приложение «$requested»."
     }
+
+    fun installedAppsSummary(): String = appCatalog.summary()
 
     fun openSettings(section: String): String {
         val s = section.trim().lowercase(Locale.getDefault())
