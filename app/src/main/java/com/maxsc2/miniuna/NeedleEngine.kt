@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
+import java.util.Locale
 
 class NeedleEngine(
     private val context: Context,
@@ -22,6 +23,10 @@ class NeedleEngine(
     private var toolsJson: String? = null
 
     override fun classify(text: String): IntentResult {
+        // Small deterministic fast paths keep common device controls reliable.
+        // Needle remains the general router for commands outside this set.
+        fastPath(text)?.let { return it }
+
         if (!ensureNativeModel()) return fallback.classify(text)
 
         return try {
@@ -66,11 +71,160 @@ class NeedleEngine(
 
     fun isNativeReady(): Boolean = nativeReady && model != 0L
 
-    private fun parseNeedleResult(json: String): IntentResult? {
-        // Needle 3 can return a completed "respond" turn. Mini-UNA is intentionally
-        // a command router here, so only function calls become executable intents.
-        // Text answers belong to the higher-level assistant layer, not this router.
+    private fun fastPath(raw: String): IntentResult? {
+        val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("\\s+"), " ")
+        if (t.isBlank()) return null
 
+        // Explicit app launch commands. "найди Chrome" stays a web-search request;
+        // "открой Chrome" is an app-launch request.
+        val appMatch = Regex(
+            "^(?:открой|запусти|запуск|включи|перейди в|зайди в)\\s+(.+?)\\s*[.!?]?$"
+        ).find(t)
+
+        if (appMatch != null) {
+            val app = appMatch.groupValues[1].trim()
+            val known = setOf(
+                "chrome", "хром", "google chrome",
+                "youtube", "ютуб",
+                "telegram", "телеграм",
+                "whatsapp", "ватсап",
+                "spotify", "спотифай",
+                "калькулятор"
+            )
+            if (app in known) {
+                return IntentResult(
+                    intent = "OPEN_APP",
+                    confidence = 0.995f,
+                    arguments = mapOf("app" to app),
+                    reasoning = "deterministic app-launch fast path"
+                )
+            }
+        }
+
+        // Common Russian voice forms for volume.
+        if (
+            t.contains("сделай громче") ||
+            t.contains("увеличь громкость") ||
+            t.contains("прибавь громкость") ||
+            t == "громче" ||
+            t == "громкость вверх"
+        ) {
+            return IntentResult("VOLUME_UP", 0.995f, reasoning = "deterministic volume fast path")
+        }
+
+        if (
+            t.contains("сделай тише") ||
+            t.contains("уменьши громкость") ||
+            t.contains("убавь громкость") ||
+            t == "тише" ||
+            t == "громкость вниз"
+        ) {
+            return IntentResult("VOLUME_DOWN", 0.995f, reasoning = "deterministic volume fast path")
+        }
+
+        if (
+            t.contains("без звука") ||
+            t.contains("выключи звук") ||
+            t.contains("включи звук") ||
+            t == "мьют"
+        ) {
+            return IntentResult("VOLUME_MUTE", 0.995f, reasoning = "deterministic volume fast path")
+        }
+
+        val timerMatch = Regex(
+            ".*(?:таймер|таймерчик|минутник).*?(\\d+)\\s*(секунд(?:а|ы)?|сек|с|минут(?:а|ы)?|мин|час(?:а|ов)?|ч).*"
+        ).find(t)
+
+        if (timerMatch != null) {
+            val value = timerMatch.groupValues[1].toIntOrNull() ?: return null
+            return when (timerMatch.groupValues[2]) {
+                "с", "сек", "секунда", "секунды", "секунд" ->
+                    IntentResult(
+                        "SET_TIMER_SECONDS",
+                        0.995f,
+                        mapOf("seconds" to value.toString()),
+                        reasoning = "deterministic timer fast path"
+                    )
+
+                "ч", "час", "часа", "часов" ->
+                    IntentResult(
+                        "SET_TIMER_HOURS",
+                        0.995f,
+                        mapOf("hours" to value.toString()),
+                        reasoning = "deterministic timer fast path"
+                    )
+
+                else ->
+                    IntentResult(
+                        "SET_TIMER_MINUTES",
+                        0.995f,
+                        mapOf("minutes" to value.toString()),
+                        reasoning = "deterministic timer fast path"
+                    )
+            }
+        }
+
+        val timerWordMatch = Regex(
+            ".*(?:таймер|таймерчик|минутник).*?([а-я]+)\\s*(минут(?:а|ы)?|мин|секунд(?:а|ы)?|сек|час(?:а|ов)?|ч).*"
+        ).find(t)
+
+        if (timerWordMatch != null) {
+            val value = russianNumber(timerWordMatch.groupValues[1]) ?: return null
+            return when (timerWordMatch.groupValues[2]) {
+                "сек", "секунда", "секунды", "секунд" ->
+                    IntentResult(
+                        "SET_TIMER_SECONDS",
+                        0.99f,
+                        mapOf("seconds" to value.toString()),
+                        reasoning = "deterministic Russian-number timer fast path"
+                    )
+
+                "ч", "час", "часа", "часов" ->
+                    IntentResult(
+                        "SET_TIMER_HOURS",
+                        0.99f,
+                        mapOf("hours" to value.toString()),
+                        reasoning = "deterministic Russian-number timer fast path"
+                    )
+
+                else ->
+                    IntentResult(
+                        "SET_TIMER_MINUTES",
+                        0.99f,
+                        mapOf("minutes" to value.toString()),
+                        reasoning = "deterministic Russian-number timer fast path"
+                    )
+            }
+        }
+
+        return null
+    }
+
+    private fun russianNumber(value: String): Int? = mapOf(
+        "ноль" to 0,
+        "один" to 1, "одна" to 1,
+        "два" to 2, "две" to 2,
+        "три" to 3,
+        "четыре" to 4,
+        "пять" to 5,
+        "шесть" to 6,
+        "семь" to 7,
+        "восемь" to 8,
+        "девять" to 9,
+        "десять" to 10,
+        "одиннадцать" to 11,
+        "двенадцать" to 12,
+        "тринадцать" to 13,
+        "четырнадцать" to 14,
+        "пятнадцать" to 15,
+        "двадцать" to 20,
+        "тридцать" to 30,
+        "сорок" to 40,
+        "пятьдесят" to 50,
+        "шестьдесят" to 60
+    )[value]
+
+    private fun parseNeedleResult(json: String): IntentResult? {
         val root = try {
             JSONObject(json)
         } catch (_: Throwable) {
@@ -83,17 +237,27 @@ class NeedleEngine(
         val suppressed = root.optJSONArray("suppressed_calls")
 
         if (calls != null && calls.length() > 0) {
-            return parseCall(calls.getJSONObject(0), confidence, reasoning)
-                .copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD)
+            val result = parseCall(calls.getJSONObject(0), confidence, reasoning)
+            return if (result.intent == "UNKNOWN") {
+                fallback.classify(lastUserText(json))
+            } else {
+                result.copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD)
+            }
         }
 
         if (suppressed != null && suppressed.length() > 0) {
-            return parseCall(suppressed.getJSONObject(0), confidence, reasoning)
-                .copy(requiresConfirmation = true)
+            val result = parseCall(suppressed.getJSONObject(0), confidence, reasoning)
+            return if (result.intent == "UNKNOWN") {
+                IntentResult("UNKNOWN", confidence, reasoning = reasoning)
+            } else {
+                result.copy(requiresConfirmation = true)
+            }
         }
 
         return IntentResult("UNKNOWN", confidence, reasoning = reasoning)
     }
+
+    private fun lastUserText(json: String): String = json
 
     private fun parseCall(
         call: JSONObject,
