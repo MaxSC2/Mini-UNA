@@ -20,6 +20,8 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -34,6 +36,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val voiceRequest = 700
     private val micPermission = 701
     private val prefs by lazy { getSharedPreferences("mini_una", MODE_PRIVATE) }
+
+    // Разбор команды может уйти в Cactus nativeComplete (секунды) и в обход дерева
+    // доступности, поэтому он живёт в одном фоновом потоке, а не на UI-потоке.
+    private val background: ExecutorService = Executors.newSingleThreadExecutor()
 
     private val pages by lazy {
         listOf(
@@ -109,14 +115,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         findViewById<Button>(R.id.testTool).setOnClickListener {
-            val sample = "который сейчас час"
-            val result = intentEngine.classify(sample)
-            findViewById<TextView>(R.id.toolStatus).text =
-                "Router test: " + result.intent + " (" +
-                    (result.confidence * 100).roundToInt() + "%)\n\n" +
-                    "Needle runtime: " +
-                    if ((intentEngine as? NeedleEngine)?.isNativeReady() == true) "native" else "fallback" +
-                    "\n\nПопробуй голосом: «открой Telegram», «поставь таймер на 5 минут», «громче», «назад»."
+            // classify() может уйти в CactusJNI.nativeComplete — держим это вне UI-потока.
+            background.execute {
+                val sample = "который сейчас час"
+                val result = intentEngine.classify(sample)
+                val native = (intentEngine as? NeedleEngine)?.isNativeReady() == true
+                val text =
+                    "Router test: " + result.intent + " (" +
+                        (result.confidence * 100).roundToInt() + "%)\n\n" +
+                        "Needle runtime: " + (if (native) "native" else "fallback") +
+                        "\n\nПопробуй голосом: «открой Telegram», «поставь таймер на 5 минут», «громче», «назад»."
+                runOnUiThread { findViewById<TextView>(R.id.toolStatus).text = text }
+            }
         }
 
         findViewById<Button>(R.id.accessibilityButton).setOnClickListener {
@@ -283,7 +293,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             m.setBreathing(prefs.getBoolean("breathing", true))
             m.setAuraEnabled(prefs.getBoolean("aura", true))
             m.setLightAnimation(prefs.getBoolean("light", true))
-            m.setGloss(prefs.getBoolean("light", true))
+            m.setGloss(prefs.getBoolean("gloss", true))
             m.setEmotion(prefs.getString("emotion", "neutral") ?: "neutral")
         }
         applyPalette(
@@ -397,10 +407,23 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun handle(raw: String) {
-        val engine = intentEngine as? NeedleEngine
-        val results = engine?.classifyAll(raw) ?: listOf(intentEngine.classify(raw))
+        status.text = "MINI-UNA  •  думаю…"
+        background.execute {
+            val engine = intentEngine as? NeedleEngine
+            val results = try {
+                engine?.classifyAll(raw) ?: listOf(intentEngine.classify(raw))
+            } catch (_: Throwable) {
+                listOf(IntentResult("UNKNOWN", 0f))
+            }
+            runOnUiThread { applyResults(results) }
+        }
+    }
+
+    // Выполнение действий идёт на UI-потоке: тут стартуют Activity и диалоги.
+    private fun applyResults(results: List<IntentResult>) {
         if (results.size <= 1) {
             handleSingle(results.firstOrNull() ?: IntentResult("UNKNOWN", 0f))
+            updateModelStatus()
             return
         }
 
@@ -533,6 +556,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        background.shutdownNow()
         if (::tts.isInitialized) {
             tts.stop()
             tts.shutdown()

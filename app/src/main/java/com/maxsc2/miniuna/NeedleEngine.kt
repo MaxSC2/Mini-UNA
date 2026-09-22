@@ -2,11 +2,7 @@ package com.maxsc2.miniuna
 
 import android.content.Context
 import android.util.Log
-import com.cactus.CactusJNI
 import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
-import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 class NeedleEngine(
@@ -16,8 +12,6 @@ class NeedleEngine(
 
     companion object {
         private const val CONFIDENCE_THRESHOLD = 0.70f
-        private const val BUFFER_SIZE = 1024 * 1024
-        private const val INIT_RETRY_COOLDOWN_MS = 60_000L
         private val ARG_REQUIRED = setOf(
             "OPEN_APP", "OPEN_SETTINGS", "OPEN_WEB",
             "CALCULATE", "SAVE_NOTE",
@@ -27,12 +21,15 @@ class NeedleEngine(
         )
     }
 
-    private var model: Long = 0L
     @Volatile private var nativeReady = false
     @Volatile var lastError: String = "not started"
         private set
+    // Бинаря needle нет в APK или процесс не стартует вовсе: повторные
+    // попытки бессмысленны, помечаем как неустранимое и останавливаем ретраи.
+    @Volatile private var serverFatal = false
+    @Volatile private var serverFatalReason: String = ""
     private val initLock = Any()
-    private var toolsJson: String? = null
+    private val server = NeedleServer(context)
     private val androidTools = AndroidTools(context)
     private val appCatalog = InstalledAppCatalog(context)
     private var cachedAppPrompt = ""
@@ -46,14 +43,17 @@ class NeedleEngine(
     }
 
     fun classifyAll(text: String): List<IntentResult> {
-        fastPath(text)?.let { return listOf(it) }
-
+        // Составную команду разбираем до одиночных fast path: иначе
+        // «поставь таймер на 5 минут и включи музыку» целиком матчится
+        // таймерной регуляркой и второе действие молча теряется.
         splitCompound(text)?.let { parts ->
-            val out = parts.flatMap { part ->
-                fastPath(part)?.let { listOf(it) } ?: listOf(fallback.classify(part))
+            val out = parts.map { part ->
+                fastPath(part) ?: fallback.classify(part)
             }.filter { it.intent != "UNKNOWN" }
-            if (out.isNotEmpty()) return out.take(3)
+            if (out.size >= 2) return out.take(3)
         }
+
+        fastPath(text)?.let { return listOf(it) }
 
         if (!isNativeReady()) return listOf(fallback.classify(text))
         val multi = routeMulti(text)
@@ -95,43 +95,19 @@ class NeedleEngine(
                 cachedAppPromptAt = now
             }
 
-            val system = JSONObject()
-                .put("role", "system")
-                .put(
-                    "content",
-                    "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
-                        "For open_app, map the user's spoken name to one installed app from this list. " +
-                        "Examples: «ютуб» means YouTube, «хром» means Chrome. " +
-                        cachedAppPrompt + screenPrompt()
-                )
-            val user = JSONObject()
-                .put("role", "user")
-                .put("content", text)
-            val messages = "[" + system + "," + user + "]"
+            val input =
+                "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
+                    "For open_app, map the user's spoken name to one installed app from this list. " +
+                    "Examples: «ютуб» means YouTube, «хром» means Chrome. " +
+                    cachedAppPrompt + screenPrompt() +
+                    "\n\nUser request: " + text
 
-            val buffer = ByteArray(BUFFER_SIZE)
-            val rc = CactusJNI.nativeComplete(
-                model,
-                messages,
-                buffer,
-                null,
-                toolsJson,
-                null,
-                null
-            )
-
-            if (rc < 0) {
-                lastError = "nativeComplete вернул rc=$rc"
-                Log.w("MiniUNA-Needle", lastError)
+            val json = server.complete(input)
+            if (json == null) {
+                lastError = server.lastError
                 nativeReady = false
                 return fallback.classify(text)
             }
-
-            val end = buffer.indexOf(0)
-            val json = String(
-                if (end >= 0) buffer.copyOf(end) else buffer,
-                StandardCharsets.UTF_8
-            ).trim()
 
             parseNeedleResults(json, text).firstOrNull() ?: fallback.classify(text)
         } catch (_: Throwable) {
@@ -148,42 +124,18 @@ class NeedleEngine(
                 cachedAppPromptAt = now
             }
 
-            val system = JSONObject()
-                .put("role", "system")
-                .put(
-                    "content",
-                    "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
-                        "If the user asks for several actions, return one function call per action, in order. " +
-                        cachedAppPrompt + screenPrompt()
-                )
-            val user = JSONObject()
-                .put("role", "user")
-                .put("content", text)
-            val messages = "[" + system + "," + user + "]"
+            val input =
+                "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
+                    "If the user asks for several actions, return one function call per action, in order. " +
+                    cachedAppPrompt + screenPrompt() +
+                    "\n\nUser request: " + text
 
-            val buffer = ByteArray(BUFFER_SIZE)
-            val rc = CactusJNI.nativeComplete(
-                model,
-                messages,
-                buffer,
-                null,
-                toolsJson,
-                null,
-                null
-            )
-
-            if (rc < 0) {
-                lastError = "nativeComplete вернул rc=$rc"
-                Log.w("MiniUNA-Needle", lastError)
+            val json = server.complete(input)
+            if (json == null) {
+                lastError = server.lastError
                 nativeReady = false
                 return emptyList()
             }
-
-            val end = buffer.indexOf(0)
-            val json = String(
-                if (end >= 0) buffer.copyOf(end) else buffer,
-                StandardCharsets.UTF_8
-            ).trim()
 
             parseNeedleResults(json, text)
         } catch (_: Throwable) {
@@ -191,12 +143,12 @@ class NeedleEngine(
         }
     }
 
-    fun isNativeReady(): Boolean = nativeReady && model != 0L
+    fun isNativeReady(): Boolean = nativeReady
 
-    fun nativeStatus(): String = if (isNativeReady()) {
-        "Needle 3: native Cactus runtime активен."
-    } else {
-        "Needle 3: недоступен ($lastError)."
+    fun nativeStatus(): String = when {
+        isNativeReady() -> "Needle 3: локальный сервер активен."
+        serverFatal -> "Needle 3: недоступен — $serverFatalReason"
+        else -> "Needle 3: недоступен ($lastError)."
     }
 
     fun warmupAsync(onDone: ((Boolean) -> Unit)? = null) {
@@ -205,7 +157,7 @@ class NeedleEngine(
             var lastOk: Boolean? = null
             while (true) {
                 val ok = try {
-                    ensureNativeModel(force = true)
+                    ensureServer()
                 } catch (e: Throwable) {
                     lastError = "warmup: ${e.message}"
                     Log.w("MiniUNA-Needle", lastError)
@@ -226,6 +178,12 @@ class NeedleEngine(
                     }
                 }
                 lastOk = false
+                // Неустранимая ошибка (нет бинаря в APK): повторные попытки
+                // не помогут — выходим, чтобы не крутить поток и не спамить в logcat.
+                if (serverFatal) {
+                    Log.w("MiniUNA-Needle", "warmup остановлен: $serverFatalReason")
+                    return@Thread
+                }
                 try {
                     Thread.sleep(delayMs)
                 } catch (_: InterruptedException) {
@@ -570,50 +528,28 @@ class NeedleEngine(
         )
     }
 
-    private fun ensureNativeModel(force: Boolean = false): Boolean {
-        if (nativeReady && model != 0L) return true
-
-        // Don't hammer a failing init on the UI thread: at most one attempt
-        // per cooldown window. Background warmup bypasses with force=true.
-        if (!force) {
-            val now = System.currentTimeMillis()
-            if (now - lastInitAttemptAt < INIT_RETRY_COOLDOWN_MS) return false
-            lastInitAttemptAt = now
-        }
+    private fun ensureServer(): Boolean {
+        if (nativeReady) return true
+        if (serverFatal) return false
 
         synchronized(initLock) {
-            if (nativeReady && model != 0L) return true
+            if (nativeReady) return true
+            if (serverFatal) return false
             return try {
-                try {
-                    if (toolsJson == null) {
-                        toolsJson = context.assets.open("needle_tools.json")
-                            .bufferedReader()
-                            .use { it.readText() }
+                if (!server.ensureStarted()) {
+                    lastError = server.lastError
+                    // Deterministic failure: binary or tools missing from APK.
+                    if (lastError.startsWith("нет файлов needle")) {
+                        serverFatal = true
+                        serverFatalReason = lastError
                     }
-                } catch (e: Throwable) {
-                    lastError = "нет needle_tools.json в assets: ${e.message}"
-                    Log.w("MiniUNA-Needle", lastError)
+                    nativeReady = false
                     return false
                 }
-
-                val modelFile = File(context.filesDir, "needle3.cact")
-                if (!copyModel(modelFile)) return false
-                if (tryInit(modelFile)) return true
-
-                // One retry with a fresh copy: the first copy may be truncated
-                // (e.g. process died mid-copy), and a partial file always fails init.
-                if (!initRetried) {
-                    initRetried = true
-                    Log.w("MiniUNA-Needle", "init failed, retrying with fresh copy")
-                    try {
-                        modelFile.delete()
-                    } catch (_: Throwable) {
-                    }
-                    if (!copyModel(modelFile)) return false
-                    if (tryInit(modelFile)) return true
-                }
-                nativeReady = false
-                false
+                nativeReady = true
+                lastError = "ok"
+                Log.i("MiniUNA-Needle", "needle server ready")
+                true
             } catch (e: Throwable) {
                 lastError = "ensure: ${e.message}"
                 Log.w("MiniUNA-Needle", lastError)
@@ -623,65 +559,8 @@ class NeedleEngine(
         }
     }
 
-    @Volatile private var initRetried = false
-    @Volatile private var lastInitAttemptAt = 0L
-
-    private fun copyModel(modelFile: File): Boolean {
-        if (modelFile.exists() && modelFile.length() > 0L) return true
-        return try {
-            context.assets.open("needle3.cact").use { input ->
-                FileOutputStream(modelFile).use { output -> input.copyTo(output) }
-            }
-            true
-        } catch (e: Throwable) {
-            lastError = "нет needle3.cact в APK (assets): ${e.message}"
-            Log.w("MiniUNA-Needle", lastError)
-            false
-        }
-    }
-
-    private fun tryInit(modelFile: File): Boolean {
-        val sizeMb = modelFile.length() / 1048576.0
-        try {
-            model = CactusJNI.nativeInit(modelFile.absolutePath, null, false)
-        } catch (e: UnsatisfiedLinkError) {
-            lastError = "нет libcactus_engine.so для этого ABI: ${e.message}"
-            Log.w("MiniUNA-Needle", lastError)
-            nativeReady = false
-            return false
-        } catch (e: Throwable) {
-            lastError = "nativeInit упал: ${e.message}"
-            Log.w("MiniUNA-Needle", lastError)
-            nativeReady = false
-            return false
-        }
-        if (model == 0L) {
-            val detail = try {
-                CactusJNI.nativeGetLastError()
-            } catch (_: Throwable) {
-                ""
-            }
-            val size = "%.1f".format(Locale.US, sizeMb)
-            lastError = "nativeInit вернул 0 (файл $size МБ)" +
-                if (detail.isNullOrBlank()) " (память или файл модели?)" else ": $detail"
-            Log.w("MiniUNA-Needle", lastError)
-            nativeReady = false
-            return false
-        }
-        nativeReady = true
-        lastError = "ok"
-        Log.i("MiniUNA-Needle", "native model ready")
-        return true
-    }
-
     fun close() {
-        if (model != 0L) {
-            try {
-                CactusJNI.nativeDestroy(model)
-            } catch (_: Throwable) {
-            }
-        }
-        model = 0L
+        server.stop()
         nativeReady = false
     }
 }

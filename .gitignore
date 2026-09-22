@@ -15,3 +15,4 @@ local.properties
 # CI-built native lib and model weights (rebuilt/downloaded by CI)
 app/src/main/jniLibs/
 app/src/main/assets/needle3.cact
+app/src/main/assets/needle

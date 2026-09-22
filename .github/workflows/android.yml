@@ -50,6 +50,14 @@ jobs:
             -o app/src/main/assets/needle3.cact
           test -s app/src/main/assets/needle3.cact
 
+      - name: Download Needle server binary
+        run: |
+          mkdir -p app/src/main/assets
+          curl -L --fail --retry 3 \
+            "https://huggingface.co/Cactus-Compute/needle3/resolve/main/android-arm64/needle?download=true" \
+            -o app/src/main/assets/needle
+          test -s app/src/main/assets/needle
+
       - name: Set up signing keystore
         run: |
           echo "$MINIUNA_KEYSTORE_B64" | base64 -d > /tmp/mini-una-release.p12
