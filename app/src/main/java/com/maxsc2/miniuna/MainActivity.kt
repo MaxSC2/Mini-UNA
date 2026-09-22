@@ -11,6 +11,7 @@ import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -71,6 +72,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         findViewById<Button>(R.id.navSettings).setOnClickListener { showPage(3) }
         findViewById<Button>(R.id.mic).setOnClickListener { listen() }
 
+        findViewById<Button>(R.id.quickTime).setOnClickListener {
+            handle("который сейчас час")
+        }
+        findViewById<Button>(R.id.quickApps).setOnClickListener {
+            refreshAppSummary()
+            showPage(1)
+        }
+        findViewById<Button>(R.id.quickNote).setOnClickListener {
+            showNoteComposer()
+        }
+        findViewById<Button>(R.id.refreshApps).setOnClickListener {
+            refreshAppSummary()
+            respond("Список приложений обновлён.")
+        }
+
         findViewById<Button>(R.id.testTool).setOnClickListener {
             val sample = "который сейчас час"
             val result = intentEngine.classify(sample)
@@ -106,10 +122,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun setupSettings() {
         val tracking = findViewById<SwitchCompat>(R.id.toggleTracking)
         val breathing = findViewById<SwitchCompat>(R.id.toggleBreathing)
+        val aura = findViewById<SwitchCompat>(R.id.toggleAura)
+        val light = findViewById<SwitchCompat>(R.id.toggleLight)
         val voice = findViewById<SwitchCompat>(R.id.toggleVoice)
 
         tracking.isChecked = prefs.getBoolean("tracking", true)
         breathing.isChecked = prefs.getBoolean("breathing", true)
+        aura.isChecked = prefs.getBoolean("aura", true)
+        light.isChecked = prefs.getBoolean("light", true)
         voice.isChecked = prefs.getBoolean("voice", true)
 
         tracking.setOnCheckedChangeListener { _, checked ->
@@ -119,6 +139,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         breathing.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("breathing", checked).apply()
             mascot.setBreathing(checked)
+        }
+        aura.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("aura", checked).apply()
+            mascot.setAuraEnabled(checked)
+        }
+        light.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("light", checked).apply()
+            mascot.setLightAnimation(checked)
+            mascot.setGloss(checked)
         }
         voice.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("voice", checked).apply()
@@ -171,11 +200,45 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun applySavedMascotState() {
         mascot.setTracking(prefs.getBoolean("tracking", true))
         mascot.setBreathing(prefs.getBoolean("breathing", true))
+        mascot.setAuraEnabled(prefs.getBoolean("aura", true))
+        mascot.setLightAnimation(prefs.getBoolean("light", true))
+        mascot.setGloss(prefs.getBoolean("light", true))
         mascot.setEmotion(prefs.getString("emotion", "neutral") ?: "neutral")
         applyPalette(
             paletteByName(prefs.getString("palette", "Синяя сфера"))
                 ?: paletteByName("Синяя сфера")!!
         )
+        refreshAppSummary()
+    }
+
+    private fun refreshAppSummary() {
+        val catalog = InstalledAppCatalog(this)
+        findViewById<TextView>(R.id.appSummary).text = catalog.summary()
+    }
+
+    private fun showNoteComposer() {
+        val input = EditText(this).apply {
+            hint = "Например: купить молоко"
+            setSingleLine(false)
+            minLines = 2
+            maxLines = 5
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Новая заметка")
+            .setMessage("Я сохраню её только на этом телефоне.")
+            .setView(input)
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Сохранить") { _, _ ->
+                val note = input.text.toString().trim()
+                if (note.isNotBlank()) {
+                    prefs.edit().putString("last_note", note).apply()
+                    refreshNote()
+                    respond("Записала. Заметка сохранена на устройстве.")
+                    showPage(2)
+                }
+            }
+            .show()
     }
 
     private fun applyPalette(palette: Palette) {
