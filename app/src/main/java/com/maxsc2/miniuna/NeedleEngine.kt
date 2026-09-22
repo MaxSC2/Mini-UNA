@@ -21,6 +21,9 @@ class NeedleEngine(
     private var model: Long = 0L
     private var nativeReady = false
     private var toolsJson: String? = null
+    private val appCatalog = InstalledAppCatalog(context)
+    private var cachedAppPrompt = ""
+    private var cachedAppPromptAt = 0L
 
     override fun classify(text: String): IntentResult {
         // Small deterministic fast paths keep common device controls reliable.
@@ -30,11 +33,20 @@ class NeedleEngine(
         if (!ensureNativeModel()) return fallback.classify(text)
 
         return try {
+            val now = System.currentTimeMillis()
+            if (now - cachedAppPromptAt > 60_000L || cachedAppPrompt.isBlank()) {
+                cachedAppPrompt = appCatalog.promptCatalog()
+                cachedAppPromptAt = now
+            }
+
             val system = JSONObject()
                 .put("role", "system")
                 .put(
                     "content",
-                    "Device: Android phone. Use only declared tools. Never invent missing arguments."
+                    "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
+                        "For open_app, map the user's spoken name to one installed app from this list. " +
+                        "Examples: «ютуб» means YouTube, «хром» means Chrome. " +
+                        cachedAppPrompt
                 )
             val user = JSONObject()
                 .put("role", "user")
