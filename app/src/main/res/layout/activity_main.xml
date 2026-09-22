@@ -65,7 +65,6 @@
                 android:layout_height="wrap_content"
                 android:minHeight="48dp"
                 android:text="Я слушаю. Можно сказать: «открой YouTube», «поставь таймер на 10 минут» или «сохрани заметку»."
-
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:gravity="center"
@@ -131,10 +130,7 @@
             <TextView
                 android:id="@+id/toolStatus"
                 style="@style/PanelText"
-                android:text="✓ Needle 3 + confidence gate
-✓ Список установленных приложений
-✓ Понимание названий: «ютуб» → YouTube
-&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
+                android:text="✓ Needle 3 + confidence gate&#10;✓ Список установленных приложений&#10;✓ Понимание названий: «ютуб» → YouTube&#10;✓ Время и дата&#10;✓ Открытие приложений&#10;✓ Настройки Android&#10;✓ Веб-поиск&#10;✓ Калькулятор&#10;✓ Заметки&#10;✓ Таймер&#10;✓ Медиа-громкость&#10;&#10;Системные действия через Accessibility вынесены в отдельную настройку."/>
 
             <Button
                 android:id="@+id/testTool"
