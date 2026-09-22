@@ -24,6 +24,17 @@ class ToolRegistry(
         }
         "SET_TIMER_SECONDS" -> android.setTimer(result.arguments["seconds"]?.toIntOrNull() ?: 60)
         "SET_TIMER" -> android.setTimer(result.arguments["seconds"]?.toIntOrNull() ?: 60)
+        "SET_ALARM" -> {
+            val days = result.arguments["days"]?.split(",")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.isNotEmpty() }
+            android.setAlarm(
+                result.arguments["hour"]?.toIntOrNull() ?: 7,
+                result.arguments["minutes"]?.toIntOrNull() ?: 0,
+                days
+            )
+        }
+        "ALARM_CANCEL" -> "Будильники отключаются вручную: открой приложение Часы."
+        "VOLUME_PERCENT" -> android.setVolumePercent(result.arguments["percent"]?.toIntOrNull() ?: 50)
+        "PERSONA" -> persona(result.arguments["key"].orEmpty())
         "SET_TIMER_MINUTES" -> android.setTimer((result.arguments["minutes"]?.toIntOrNull() ?: 1) * 60)
         "SET_TIMER_HOURS" -> android.setTimer((result.arguments["hours"]?.toIntOrNull() ?: 1) * 3600)
         "VOLUME_UP" -> android.volumeUp()
@@ -49,5 +60,31 @@ class ToolRegistry(
         "LOCK_SCREEN" -> android.accessibility("LOCK_SCREEN")
         "OPEN_ACCESSIBILITY_SETTINGS" -> android.openSettings("accessibility")
         else -> null
+    }
+
+    private fun persona(key: String): String {
+        val hour = try {
+            java.text.SimpleDateFormat("H", Locale.getDefault()).format(Date()).toInt()
+        } catch (_: Throwable) {
+            12
+        }
+        return when (key) {
+            "greeting" -> when (hour) {
+                in 5..11 -> "Доброе утро! Я на связи."
+                in 12..17 -> "Добрый день! Слушаю."
+                in 18..22 -> "Добрый вечер! Чем помочь?"
+                else -> "Привет! Я тут, даже ночью."
+            }
+            "who" -> "Я Юна — твой локальный помощник. Живу прямо в телефоне, интернет мне не нужен."
+            "howareyou" -> if (hour % 2 == 0) {
+                "Отлично, все системы в норме. А у тебя как?"
+            } else {
+                "Хорошо! Готова помогать. Что делаем?"
+            }
+            "thanks" -> "Всегда пожалуйста!"
+            "bye" -> "До связи!"
+            "night" -> "Спокойной ночи!"
+            else -> "Привет!"
+        }
     }
 }

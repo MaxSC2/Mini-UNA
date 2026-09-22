@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -36,6 +37,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val voiceRequest = 700
     private val micPermission = 701
     private val prefs by lazy { getSharedPreferences("mini_una", MODE_PRIVATE) }
+    private var pending: PendingSlot? = null
+    private var autoListenArmed = false
 
     // Разбор команды может уйти в Cactus nativeComplete (секунды) и в обход дерева
     // доступности, поэтому он живёт в одном фоновом потоке, а не на UI-потоке.
@@ -65,6 +68,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         mascot = findViewById(R.id.mascot)
         mascotPreview = findViewById(R.id.mascotPreview)
         tts = TextToSpeech(this, this)
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+            override fun onError(utteranceId: String?) = Unit
+            override fun onDone(utteranceId: String?) {
+                if (utteranceId == "mini_una_q" && autoListenArmed) {
+                    autoListenArmed = false
+                    runOnUiThread { listen() }
+                }
+            }
+        })
 
         intentEngine = NeedleEngine(this, LocalIntentEngine())
         toolRegistry = ToolRegistry(this) { note ->
@@ -403,7 +416,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        handle(text.trim())
+        val input = text.trim()
+        if (pending != null) onSlotAnswer(input) else handle(input)
     }
 
     private fun handle(raw: String) {
@@ -422,7 +436,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     // Выполнение действий идёт на UI-потоке: тут стартуют Activity и диалоги.
     private fun applyResults(results: List<IntentResult>) {
         if (results.size <= 1) {
-            handleSingle(results.firstOrNull() ?: IntentResult("UNKNOWN", 0f))
+            val r = results.firstOrNull() ?: IntentResult("UNKNOWN", 0f)
+            val missing = SlotHelper.missing(r.intent, r.arguments)
+            if (missing.isNotEmpty()) {
+                pending = PendingSlot(r.intent, r.arguments.toMutableMap(), missing)
+                askSlot()
+                updateModelStatus()
+                return
+            }
+            handleSingle(r)
             updateModelStatus()
             return
         }
@@ -461,7 +483,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun executeOrHelp(result: IntentResult): String {
         if (result.intent == "HELP") {
-            return "Умею открывать приложения и настройки, искать в интернете и на YouTube, считать, ставить таймер, менять громкость, включать музыку, читать экран и уведомления, отправлять в Telegram и выполнять системные действия."
+            return "Умею открывать приложения и настройки, искать в интернете и на YouTube, считать, ставить таймер и будильник, менять громкость, включать музыку, читать экран и уведомления, отправлять в Telegram и выполнять системные действия. А ещё со мной можно просто поболтать."
         }
         return try {
             toolRegistry.execute(result)
@@ -540,12 +562,81 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (note == null) "Пока пусто." else "Последняя заметка:\n\n" + note
     }
 
-    private fun respond(text: String) {
+    private fun askSlot() {
+        val p = pending ?: return
+        val question = SlotHelper.question(p.missing.firstOrNull() ?: return)
+        if (prefs.getBoolean("voice", true)) {
+            respond(question, autoListen = true)
+        } else {
+            showSlotDialog(question)
+        }
+    }
+
+    private fun showSlotDialog(question: String) {
+        val input = EditText(this).apply {
+            hint = question
+            setSingleLine()
+        }
+        AlertDialog.Builder(this)
+            .setTitle(question)
+            .setView(input)
+            .setNegativeButton("Отмена") { _, _ ->
+                pending = null
+                respond("Ладно, отменила.")
+            }
+            .setPositiveButton("OK") { _, _ ->
+                onSlotAnswer(input.text.toString().trim())
+            }
+            .show()
+    }
+
+    private fun onSlotAnswer(answer: String) {
+        val p = pending
+        if (p == null) {
+            handle(answer)
+            return
+        }
+        if (answer.isBlank()) {
+            askSlot()
+            return
+        }
+        if (SlotHelper.isCancel(answer)) {
+            pending = null
+            respond("Ладно, отменила.")
+            updateModelStatus()
+            return
+        }
+        if (SlotHelper.fill(p, answer) && p.missing.isNotEmpty()) {
+            p.retries = 0
+            askSlot()
+            updateModelStatus()
+            return
+        }
+        if (p.missing.isEmpty()) {
+            pending = null
+            handleSingle(IntentResult(p.intent, 0.95f, p.args.toMap()))
+            updateModelStatus()
+            return
+        }
+        p.retries++
+        if (p.retries >= 1) {
+            pending = null
+            handle(answer)
+        } else {
+            askSlot()
+        }
+        updateModelStatus()
+    }
+
+    private fun respond(text: String, autoListen: Boolean = false) {
         output.text = text
         mascot.blink()
         if (prefs.getBoolean("voice", true) && ::tts.isInitialized) {
             if (tts.isSpeaking) tts.stop()
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "mini_una")
+            autoListenArmed = autoListen
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, if (autoListen) "mini_una_q" else "mini_una")
+        } else {
+            autoListenArmed = false
         }
     }
 

@@ -198,6 +198,30 @@ class NeedleEngine(
         val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("""\\s+"""), " ")
         if (t.isBlank()) return null
 
+        // Persona first: greetings and small talk never reach the tools.
+        if (
+            t == "привет" || t.startsWith("привет ") || t.startsWith("привет,") ||
+            t == "здравствуй" || t == "здравствуйте" ||
+            t.contains("доброе утро") || t.contains("добрый день") || t.contains("добрый вечер")
+        ) {
+            return IntentResult("PERSONA", 0.99f, mapOf("key" to "greeting"), reasoning = "deterministic persona fast path")
+        }
+        if (t.contains("как дела")) {
+            return IntentResult("PERSONA", 0.99f, mapOf("key" to "howareyou"), reasoning = "deterministic persona fast path")
+        }
+        if (t.contains("кто ты") || t.contains("что ты такое") || t.contains("расскажи о себе")) {
+            return IntentResult("PERSONA", 0.99f, mapOf("key" to "who"), reasoning = "deterministic persona fast path")
+        }
+        if (t == "спасибо" || t.startsWith("спасибо ") || t.startsWith("спасибо,")) {
+            return IntentResult("PERSONA", 0.99f, mapOf("key" to "thanks"), reasoning = "deterministic persona fast path")
+        }
+        if (t.contains("спокойной ночи")) {
+            return IntentResult("PERSONA", 0.99f, mapOf("key" to "night"), reasoning = "deterministic persona fast path")
+        }
+        if (t == "пока" || t.contains("до связи") || t.contains("до встречи")) {
+            return IntentResult("PERSONA", 0.99f, mapOf("key" to "bye"), reasoning = "deterministic persona fast path")
+        }
+
         // Music requests go before the generic app-launch path:
         // "включи музыку" must start playback, not just open an app page.
         if (
@@ -302,6 +326,29 @@ class NeedleEngine(
                     reasoning = "installed-app catalog fast path"
                 )
             }
+        }
+
+        // Volume percent beats plain up/down: "громче на 20" is a target, not a step.
+        parsePercent(raw)?.let { p ->
+            if (t.contains("громк") || t.contains("звук") || t.contains("тише") || t.contains("громче")) {
+                return IntentResult("VOLUME_PERCENT", 0.99f, mapOf("percent" to p.toString()), reasoning = "deterministic volume fast path")
+            }
+        }
+
+        // Alarm clock: time and days are parsed here, gaps are asked later.
+        if (t.contains("будильник") || t.contains("будильника")) {
+            if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
+                return IntentResult("ALARM_CANCEL", 0.97f, reasoning = "deterministic alarm fast path")
+            }
+            val args = mutableMapOf<String, String>()
+            parseTimeRu(t)?.let { (h, m) ->
+                args["hour"] = h.toString()
+                args["minutes"] = m.toString()
+            }
+            parseDaysRu(t)?.let { days ->
+                args["days"] = days.joinToString(",")
+            }
+            return IntentResult("SET_ALARM", 0.97f, args, reasoning = "deterministic alarm fast path")
         }
 
         // Common Russian voice forms for volume.
@@ -502,6 +549,9 @@ class NeedleEngine(
             "volume_up" -> "VOLUME_UP"
             "volume_down" -> "VOLUME_DOWN"
             "volume_mute" -> "VOLUME_MUTE"
+            "volume_percent" -> "VOLUME_PERCENT"
+            "set_alarm" -> "SET_ALARM"
+            "dismiss_alarm" -> "ALARM_CANCEL"
             "play_music" -> "PLAY_MUSIC"
             "media_play_pause" -> "MEDIA_TOGGLE"
             "media_next" -> "MEDIA_NEXT"

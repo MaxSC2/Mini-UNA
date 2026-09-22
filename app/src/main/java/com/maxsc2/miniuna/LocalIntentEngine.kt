@@ -8,6 +8,20 @@ class LocalIntentEngine : IntentEngine {
         val t = raw.lowercase(Locale.getDefault())
 
         return when {
+            t == "привет" || t.startsWith("привет ") || t.contains("доброе утро") ||
+                t.contains("добрый день") || t.contains("добрый вечер") ||
+                t == "здравствуй" || t == "здравствуйте" ->
+                IntentResult("PERSONA", 0.98f, mapOf("key" to "greeting"))
+            t.contains("как дела") ->
+                IntentResult("PERSONA", 0.98f, mapOf("key" to "howareyou"))
+            t.contains("кто ты") || t.contains("расскажи о себе") ->
+                IntentResult("PERSONA", 0.98f, mapOf("key" to "who"))
+            t == "спасибо" || t.startsWith("спасибо ") ->
+                IntentResult("PERSONA", 0.98f, mapOf("key" to "thanks"))
+            t.contains("спокойной ночи") ->
+                IntentResult("PERSONA", 0.98f, mapOf("key" to "night"))
+            t == "пока" || t.contains("до связи") ->
+                IntentResult("PERSONA", 0.98f, mapOf("key" to "bye"))
             t.contains("время") || t.contains("который час") ->
                 IntentResult("GET_TIME", 0.99f)
             t.contains("дата") || t.contains("какое сегодня число") || t.contains("число сегодня") ->
@@ -24,12 +38,28 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("CALCULATE", 0.96f, mapOf("expression" to raw.substringAfter(" ").trim()))
             t.startsWith("заметка ") || t.startsWith("запиши ") ->
                 IntentResult("SAVE_NOTE", 0.95f, mapOf("note" to raw.substringAfter(" ").trim()))
+            t.contains("будильник") || t.contains("будильника") ->
+                if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
+                    IntentResult("ALARM_CANCEL", 0.93f)
+                } else {
+                    val args = mutableMapOf<String, String>()
+                    parseTimeRu(t)?.let { (h, m) ->
+                        args["hour"] = h.toString()
+                        args["minutes"] = m.toString()
+                    }
+                    parseDaysRu(t)?.let { days ->
+                        args["days"] = days.joinToString(",")
+                    }
+                    IntentResult("SET_ALARM", 0.93f, args)
+                }
             t.contains("таймер") || t.startsWith("поставь таймер") ->
                 if (t == "таймер" || t == "таймерчик" || t == "поставь таймер" || t == "включи таймер") {
-                    IntentResult("SET_TIMER_MINUTES", 0.92f, mapOf("minutes" to "1"))
+                    IntentResult("SET_TIMER_SECONDS", 0.92f, mapOf("seconds" to ""))
                 } else {
                     IntentResult("SET_TIMER", 0.92f, mapOf("seconds" to parseTimerSeconds(raw).toString()))
                 }
+            (t.contains("громкость") || t.contains("звук")) && parsePercent(raw) != null ->
+                IntentResult("VOLUME_PERCENT", 0.93f, mapOf("percent" to parsePercent(raw).toString()))
             t.contains("громче") || t.contains("увеличь громкость") ->
                 IntentResult("VOLUME_UP", 0.95f)
             t.contains("тише") || t.contains("уменьши громкость") ->

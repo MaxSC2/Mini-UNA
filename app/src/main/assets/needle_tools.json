@@ -215,6 +215,42 @@
   {
     "type": "function",
     "function": {
+      "name": "set_alarm",
+      "description": "Set an Android alarm clock. Hour is 0-23, minutes 0-59. Days is an optional list of Calendar day constants (1=Sunday..7=Saturday); omit for a daily alarm.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "hour": {"type": "integer", "minimum": 0, "maximum": 23},
+          "minutes": {"type": "integer", "minimum": 0, "maximum": 59},
+          "days": {"type": "string"}
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "dismiss_alarm",
+      "description": "The user wants to cancel or turn off an alarm. There is no direct API, explain that alarms are managed in the Clock app.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "volume_percent",
+      "description": "Set Android media volume to a percentage from 0 to 100.",
+      "parameters": {
+        "type": "object",
+        "properties": {"percent": {"type": "integer", "minimum": 0, "maximum": 100}},
+        "required": ["percent"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "screen_read",
       "description": "Read back the text currently visible on the Android screen. Use when the user asks what is on the screen.",
       "parameters": {"type": "object", "properties": {}, "required": []}
