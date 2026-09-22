@@ -175,7 +175,12 @@
             <Button
                 android:id="@+id/accessibilityButton"
                 style="@style/PillButton"
-                android:text="Открыть настройки специальных возможностей"
+                android:text="Открыть настройки специальных возможностей"/>
+
+            <Button
+                android:id="@+id/notifButton"
+                style="@style/PillButton"
+                android:text="Доступ к уведомлениям"
                 android:layout_marginBottom="12dp"/>
             </LinearLayout>
         </ScrollView>

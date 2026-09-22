@@ -32,4 +32,34 @@ class AccessibilityBridgeService : AccessibilityService() {
         } else false
         else -> false
     }
+
+    fun dumpScreenText(maxChars: Int = 2000, maxNodes: Int = 60): String {
+        val root = try {
+            rootInActiveWindow
+        } catch (_: Throwable) {
+            null
+        } ?: return ""
+        val out = StringBuilder()
+        var seen = 0
+        val seenTexts = HashSet<String>()
+        fun walk(node: android.view.accessibility.AccessibilityNodeInfo?) {
+            if (node == null || seen >= maxNodes || out.length >= maxChars) return
+            seen++
+            val text = (node.text?.toString().orEmpty() + " " + node.contentDescription?.toString().orEmpty()).trim()
+            if (text.length > 1 && seenTexts.add(text)) {
+                if (out.isNotEmpty()) out.append("\n")
+                out.append(text.take(160))
+            }
+            for (i in 0 until node.childCount) {
+                walk(node.getChild(i))
+                if (seen >= maxNodes || out.length >= maxChars) break
+            }
+        }
+        return try {
+            walk(root)
+            out.toString().take(maxChars)
+        } catch (_: Throwable) {
+            ""
+        }
+    }
 }

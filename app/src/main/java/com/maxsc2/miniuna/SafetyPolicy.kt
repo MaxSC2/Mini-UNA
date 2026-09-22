@@ -2,7 +2,8 @@ package com.maxsc2.miniuna
 
 object SafetyPolicy {
     private val confirmationIntents = setOf(
-        "SEND_MESSAGE", "MAKE_CALL", "DELETE_FILE", "INSTALL_APP", "PURCHASE"
+        "SEND_MESSAGE", "MAKE_CALL", "DELETE_FILE", "INSTALL_APP", "PURCHASE",
+        "TG_SHARE"
     )
 
     enum class Decision { ALLOW, CONFIRM, BLOCK }

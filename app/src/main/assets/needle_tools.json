@@ -211,5 +211,69 @@
       "description": "Go back to the previous media track.",
       "parameters": {"type": "object", "properties": {}, "required": []}
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "screen_read",
+      "description": "Read back the text currently visible on the Android screen. Use when the user asks what is on the screen.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read_notifications",
+      "description": "Read back the most recent Android notifications.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "follow_notifications",
+      "description": "Start announcing new notifications from the named app, such as Telegram or WhatsApp.",
+      "parameters": {
+        "type": "object",
+        "properties": {"app": {"type": "string", "minLength": 1}},
+        "required": ["app"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "unfollow_notifications",
+      "description": "Stop announcing notifications from the named app.",
+      "parameters": {
+        "type": "object",
+        "properties": {"app": {"type": "string", "minLength": 1}},
+        "required": ["app"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "youtube_search",
+      "description": "Search YouTube for videos matching the user's query and open the results.",
+      "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 1}},
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "send_telegram",
+      "description": "Share the given text to Telegram via the system share sheet.",
+      "parameters": {
+        "type": "object",
+        "properties": {"text": {"type": "string", "minLength": 1}},
+        "required": ["text"]
+      }
+    }
   }
 ]

@@ -18,6 +18,13 @@ class NeedleEngine(
         private const val CONFIDENCE_THRESHOLD = 0.70f
         private const val BUFFER_SIZE = 1024 * 1024
         private const val INIT_RETRY_COOLDOWN_MS = 60_000L
+        private val ARG_REQUIRED = setOf(
+            "OPEN_APP", "OPEN_SETTINGS", "OPEN_WEB",
+            "CALCULATE", "SAVE_NOTE",
+            "SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS",
+            "NOTIF_FOLLOW", "NOTIF_UNFOLLOW",
+            "YOUTUBE_SEARCH", "TG_SHARE"
+        )
     }
 
     private var model: Long = 0L
@@ -35,7 +42,48 @@ class NeedleEngine(
         // Small deterministic fast paths keep common device controls reliable.
         // Needle remains the general router for commands outside this set.
         fastPath(text)?.let { return it }
+        return routeSingle(text)
+    }
 
+    fun classifyAll(text: String): List<IntentResult> {
+        fastPath(text)?.let { return listOf(it) }
+
+        splitCompound(text)?.let { parts ->
+            val out = parts.flatMap { part ->
+                fastPath(part)?.let { listOf(it) } ?: listOf(fallback.classify(part))
+            }.filter { it.intent != "UNKNOWN" }
+            if (out.isNotEmpty()) return out.take(3)
+        }
+
+        if (!isNativeReady()) return listOf(fallback.classify(text))
+        val multi = routeMulti(text)
+        if (multi.isNotEmpty()) return multi.take(4)
+        return listOf(routeSingle(text))
+    }
+
+    private fun splitCompound(raw: String): List<String>? {
+        val t = raw.trim()
+        if (t.isBlank()) return null
+        val seps = listOf("а затем", "и потом", "потом", "и")
+        for (core in seps) {
+            val parts = t.split(Regex("(?i)\\s+" + Regex.escape(core) + "\\s+"))
+            if (parts.size in 2..3 && parts.all { it.isNotBlank() }) {
+                return parts.map { it.trim() }
+            }
+        }
+        return null
+    }
+
+    private fun screenPrompt(): String {
+        return try {
+            val screen = androidTools.screenContext(800)
+            if (screen.isBlank()) "" else " Current screen text (may help resolve references like 'it', 'there'): " + screen
+        } catch (_: Throwable) {
+            ""
+        }
+    }
+
+    private fun routeSingle(text: String): IntentResult {
         // Never init on the calling (UI) thread: a failing nativeInit blocks
         // for seconds and causes ANRs. Init happens only in warmupAsync.
         if (!isNativeReady()) return fallback.classify(text)
@@ -54,7 +102,7 @@ class NeedleEngine(
                     "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
                         "For open_app, map the user's spoken name to one installed app from this list. " +
                         "Examples: «ютуб» means YouTube, «хром» means Chrome. " +
-                        cachedAppPrompt
+                        cachedAppPrompt + screenPrompt()
                 )
             val user = JSONObject()
                 .put("role", "user")
@@ -85,9 +133,61 @@ class NeedleEngine(
                 StandardCharsets.UTF_8
             ).trim()
 
-            parseNeedleResult(json, text) ?: fallback.classify(text)
+            parseNeedleResults(json, text).firstOrNull() ?: fallback.classify(text)
         } catch (_: Throwable) {
             fallback.classify(text)
+        }
+    }
+
+    fun routeMulti(text: String): List<IntentResult> {
+        if (!isNativeReady()) return emptyList()
+        return try {
+            val now = System.currentTimeMillis()
+            if (now - cachedAppPromptAt > 60_000L || cachedAppPrompt.isBlank()) {
+                cachedAppPrompt = appCatalog.promptCatalog()
+                cachedAppPromptAt = now
+            }
+
+            val system = JSONObject()
+                .put("role", "system")
+                .put(
+                    "content",
+                    "Device: Android phone. Use only declared tools. Never invent missing arguments. " +
+                        "If the user asks for several actions, return one function call per action, in order. " +
+                        cachedAppPrompt + screenPrompt()
+                )
+            val user = JSONObject()
+                .put("role", "user")
+                .put("content", text)
+            val messages = "[" + system + "," + user + "]"
+
+            val buffer = ByteArray(BUFFER_SIZE)
+            val rc = CactusJNI.nativeComplete(
+                model,
+                messages,
+                buffer,
+                null,
+                toolsJson,
+                null,
+                null
+            )
+
+            if (rc < 0) {
+                lastError = "nativeComplete вернул rc=$rc"
+                Log.w("MiniUNA-Needle", lastError)
+                nativeReady = false
+                return emptyList()
+            }
+
+            val end = buffer.indexOf(0)
+            val json = String(
+                if (end >= 0) buffer.copyOf(end) else buffer,
+                StandardCharsets.UTF_8
+            ).trim()
+
+            parseNeedleResults(json, text)
+        } catch (_: Throwable) {
+            emptyList()
         }
     }
 
@@ -175,6 +275,56 @@ class NeedleEngine(
             t == "играй"
         ) {
             return IntentResult("MEDIA_TOGGLE", 0.995f, reasoning = "deterministic music fast path")
+        }
+
+        if (
+            t.contains("что на экране") ||
+            t.contains("прочитай экран") ||
+            t.contains("что там на экране") ||
+            t == "экран"
+        ) {
+            return IntentResult("SCREEN_READ", 0.995f, reasoning = "deterministic screen fast path")
+        }
+
+        if (
+            t.contains("прочитай уведомления") ||
+            t.contains("покажи уведомления") ||
+            t.contains("что в уведомлениях") ||
+            t == "уведомления"
+        ) {
+            return IntentResult("NOTIF_READ", 0.995f, reasoning = "deterministic notifications fast path")
+        }
+
+        val followMatch = Regex(".*следи за\\s+(.+?)\\s*[.!?]?$").find(t)
+        if (followMatch != null && !t.contains("не следи")) {
+            val app = followMatch.groupValues[1].trim()
+            if (app.isNotEmpty()) {
+                return IntentResult("NOTIF_FOLLOW", 0.99f, mapOf("app" to app), reasoning = "deterministic notifications fast path")
+            }
+        }
+
+        val unfollowMatch = Regex(".*не следи за\\s+(.+?)\\s*[.!?]?$").find(t)
+        if (unfollowMatch != null) {
+            val app = unfollowMatch.groupValues[1].trim()
+            if (app.isNotEmpty()) {
+                return IntentResult("NOTIF_UNFOLLOW", 0.99f, mapOf("app" to app), reasoning = "deterministic notifications fast path")
+            }
+        }
+
+        if (
+            t.contains("на ютубе") ||
+            t.contains("на ютьюбе") ||
+            t.contains("в ютубе")
+        ) {
+            return IntentResult("YOUTUBE_SEARCH", 0.99f, mapOf("query" to raw.trim()), reasoning = "deterministic youtube fast path")
+        }
+
+        val tgMatch = Regex(".*(?:отправь|напиши)(?:.*?(?:в телеграм|в телегу|телеграм|телегу))?\\s+(.+?)\\s*[.!?]?$").find(t)
+        if (tgMatch != null && (t.contains("телеграм") || t.contains("телегу") || t.contains("отправь"))) {
+            val text = tgMatch.groupValues[1].trim()
+            if (text.isNotEmpty() && !text.equals("телеграм", true) && !text.equals("телегу", true)) {
+                return IntentResult("TG_SHARE", 0.97f, mapOf("text" to text), reasoning = "deterministic telegram fast path")
+            }
         }
 
         // Explicit app launch commands. "найди Chrome" stays a web-search request;
@@ -319,11 +469,11 @@ class NeedleEngine(
         "шестьдесят" to 60
     )[value]
 
-    private fun parseNeedleResult(json: String, originalText: String): IntentResult? {
+    private fun parseNeedleResults(json: String, originalText: String): List<IntentResult> {
         val root = try {
             JSONObject(json)
         } catch (_: Throwable) {
-            return null
+            return emptyList()
         }
 
         val confidence = root.optDouble("confidence", 0.0).toFloat()
@@ -332,30 +482,34 @@ class NeedleEngine(
         val suppressed = root.optJSONArray("suppressed_calls")
 
         if (calls != null && calls.length() > 0) {
-            val result = parseCall(calls.getJSONObject(0), confidence, reasoning)
-            if (result.intent == "UNKNOWN") return fallback.classify(originalText)
-            if (result.arguments.isEmpty() && result.intent in setOf(
-                    "OPEN_APP", "OPEN_SETTINGS", "OPEN_WEB",
-                    "CALCULATE", "SAVE_NOTE",
-                    "SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS"
-                )
-            ) {
-                return fallback.classify(originalText)
+            val out = mutableListOf<IntentResult>()
+            for (i in 0 until minOf(calls.length(), 4)) {
+                val result = parseCall(calls.getJSONObject(i), confidence, reasoning)
+                if (result.intent == "UNKNOWN") continue
+                if (result.arguments.isEmpty() && result.intent in ARG_REQUIRED) continue
+                out.add(result.copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD))
             }
-            return result.copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD)
+            if (out.isNotEmpty()) return out
+            return listOf(fallback.classify(originalText))
         }
 
         if (suppressed != null && suppressed.length() > 0) {
             val result = parseCall(suppressed.getJSONObject(0), confidence, reasoning)
             return if (result.intent == "UNKNOWN") {
-                IntentResult("UNKNOWN", confidence, reasoning = reasoning)
+                listOf(IntentResult("UNKNOWN", confidence, reasoning = reasoning))
             } else {
-                result.copy(requiresConfirmation = true)
+                listOf(result.copy(requiresConfirmation = true))
             }
         }
 
-        return IntentResult("UNKNOWN", confidence, reasoning = reasoning)
+        return listOf(IntentResult("UNKNOWN", confidence, reasoning = reasoning))
     }
+
+    // Legacy single-result entry, kept for direct callers.
+    private fun parseNeedleResult(json: String, originalText: String): IntentResult? =
+        parseNeedleResults(json, originalText).firstOrNull {
+            it.intent != "UNKNOWN"
+        } ?: fallback.classify(originalText)
 
 
     private fun parseCall(
@@ -394,6 +548,12 @@ class NeedleEngine(
             "media_play_pause" -> "MEDIA_TOGGLE"
             "media_next" -> "MEDIA_NEXT"
             "media_previous" -> "MEDIA_PREV"
+            "screen_read" -> "SCREEN_READ"
+            "read_notifications" -> "NOTIF_READ"
+            "follow_notifications" -> "NOTIF_FOLLOW"
+            "unfollow_notifications" -> "NOTIF_UNFOLLOW"
+            "youtube_search" -> "YOUTUBE_SEARCH"
+            "send_telegram" -> "TG_SHARE"
             "go_back" -> "BACK"
             "go_home" -> "HOME"
             "open_recents" -> "RECENTS"

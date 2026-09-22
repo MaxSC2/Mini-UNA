@@ -44,11 +44,13 @@ class AndroidTools(private val context: Context) {
         "музыка" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
         "музыку" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
         "яндексмузыка" to listOf("yandexmusic", "яндексмузыка"),
-        "ютубмузыка" to listOf("youtubemusic")
+        "ютубмузыка" to listOf("youtubemusic"),
+        "неонвейв" to listOf("neonwave", "audioplayer"),
+        "неонвейвплеер" to listOf("neonwave", "audioplayer")
     )
 
     private val musicPriority = listOf(
-        "spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player", "аудио", "audio"
+        "neonwave", "spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player", "аудио", "audio"
     )
 
     fun installedApps(): List<InstalledApp> {
@@ -242,6 +244,107 @@ class AndroidTools(private val context: Context) {
     fun mediaPrevious(): String =
         if (mediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)) "Предыдущий трек."
         else "Не получилось отправить медиа-кнопку."
+
+    fun screenContext(maxChars: Int = 800): String {
+        val service = AccessibilityBridgeService.instance ?: return ""
+        return service.dumpScreenText(maxChars)
+    }
+
+    fun screenText(): String {
+        if (AccessibilityBridgeService.instance == null) {
+            return "Для чтения экрана включи службу Mini-UNA в настройках специальных возможностей."
+        }
+        val text = screenContext(500)
+        return if (text.isBlank()) "На экране нет читаемого текста."
+        else "На экране:\n" + text
+    }
+
+    fun recentNotifications(): String {
+        if (NotifListenerService.instance == null) {
+            return "Доступ к уведомлениям выключен. Открой доступ в настройках уведомлений."
+        }
+        val items = NotifListenerService.snapshot().take(5)
+        if (items.isEmpty()) return "Уведомлений пока нет."
+        return items.joinToString("\n\n") { item ->
+            appLabel(item.packageName) + ": " + item.title + " — " + item.text
+        }.take(900)
+    }
+
+    fun followNotifications(app: String): String {
+        val resolved = resolveInstalledApp(app) ?: return "Не нашла приложение «" + app + "»."
+        prefs().edit().putStringSet(
+            "notif_fav",
+            (prefs().getStringSet("notif_fav", emptySet()).orEmpty() + resolved.packageName)
+        ).apply()
+        return "Слежу за уведомлениями " + resolved.label + ". Буду озвучивать новые."
+    }
+
+    fun unfollowNotifications(app: String): String {
+        val resolved = resolveInstalledApp(app)
+        val current = prefs().getStringSet("notif_fav", emptySet()).orEmpty()
+        if (resolved == null) {
+            if (current.isEmpty()) return "Список отслеживания пуст."
+            prefs().edit().putStringSet("notif_fav", emptySet()).apply()
+            return "Перестала следить за всеми."
+        }
+        prefs().edit().putStringSet("notif_fav", current - resolved.packageName).apply()
+        return "Больше не слежу за " + resolved.label + "."
+    }
+
+    fun youtubeSearch(raw: String): String {
+        var q = raw.trim()
+        for (w in listOf("на ютьюбе", "на ютубе", "в ютубе", "ютуб", "пожалуйста", "включи", "найди", "поищи", "покажи")) {
+            q = q.replace(w, " ", ignoreCase = true)
+        }
+        q = q.replace(Regex("\\s+"), " ").trim()
+        if (q.isBlank()) return openApp("youtube")
+        val url = "https://www.youtube.com/results?search_query=" + Uri.encode(q)
+        return try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "Ищу «" + q + "» на YouTube."
+        } catch (_: ActivityNotFoundException) {
+            "На устройстве нет приложения, которое может открыть ссылку."
+        }
+    }
+
+    fun tgShare(raw: String): String {
+        var text = raw.trim()
+        for (w in listOf("в телеграм", "в телегу", "телеграм", "телегу", "отправь", "напиши", "пожалуйста")) {
+            text = text.replace(w, " ", ignoreCase = true)
+        }
+        text = text.replace(Regex("\\s+"), " ").trim()
+        if (text.isBlank()) return "Что отправить в Telegram?"
+        val pkgs = listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram")
+        val pkg = pkgs.firstOrNull {
+            try {
+                context.packageManager.getPackageInfo(it, 0)
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        } ?: return "Telegram не установлен."
+        return try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                setPackage(pkg)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            "Отправляю в Telegram."
+        } catch (_: Throwable) {
+            "Не получилось открыть Telegram."
+        }
+    }
+
+    private fun prefs() = context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
+
+    private fun appLabel(packageName: String): String = try {
+        context.packageManager.getApplicationInfo(packageName, 0)
+            .loadLabel(context.packageManager).toString()
+    } catch (_: Throwable) {
+        packageName
+    }
 
     private fun mediaKey(keyCode: Int): Boolean = try {
         audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))

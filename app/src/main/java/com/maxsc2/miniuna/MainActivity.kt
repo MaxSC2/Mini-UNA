@@ -123,6 +123,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        findViewById<Button>(R.id.notifButton).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }
+
         findViewById<Button>(R.id.clearNote).setOnClickListener {
             prefs.edit().remove("last_note").apply()
             refreshNote()
@@ -393,7 +397,58 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun handle(raw: String) {
-        val result = intentEngine.classify(raw)
+        val engine = intentEngine as? NeedleEngine
+        val results = engine?.classifyAll(raw) ?: listOf(intentEngine.classify(raw))
+        if (results.size <= 1) {
+            handleSingle(results.firstOrNull() ?: IntentResult("UNKNOWN", 0f))
+            return
+        }
+
+        val allowed = results.filter { SafetyPolicy.decide(it) == SafetyPolicy.Decision.ALLOW }
+        val rest = results - allowed.toSet()
+        if (rest.isNotEmpty()) {
+            showMultiConfirmation(allowed, rest)
+            updateModelStatus()
+            return
+        }
+
+        val responses = allowed.map { executeOrHelp(it) }
+        respond(responses.joinToString(" "))
+        updateModelStatus()
+    }
+
+    private fun showMultiConfirmation(allowed: List<IntentResult>, rest: List<IntentResult>) {
+        val names = (allowed + rest).joinToString(", ") {
+            it.intent.replace('_', ' ').lowercase(Locale.getDefault())
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Несколько действий")
+            .setMessage(
+                "Mini-UNA выполнит их по порядку:\n\n" + names +
+                    "\n\nДействия вне списка безопасных требуют отдельного подтверждения — скажи их по одному."
+            )
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Выполнить") { _, _ ->
+                val responses = allowed.map { executeOrHelp(it) }
+                if (responses.isNotEmpty()) respond(responses.joinToString(" "))
+                updateModelStatus()
+            }
+            .show()
+    }
+
+    private fun executeOrHelp(result: IntentResult): String {
+        if (result.intent == "HELP") {
+            return "Умею открывать приложения и настройки, искать в интернете и на YouTube, считать, ставить таймер, менять громкость, включать музыку, читать экран и уведомления, отправлять в Telegram и выполнять системные действия."
+        }
+        return try {
+            toolRegistry.execute(result)
+                ?: "Инструмент для «" + result.intent + "» не подключён."
+        } catch (_: Throwable) {
+            "Android не смог выполнить эту команду."
+        }
+    }
+
+    private fun handleSingle(result: IntentResult) {
         val decision = SafetyPolicy.decide(result)
 
         when (decision) {
@@ -410,21 +465,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             SafetyPolicy.Decision.CONFIRM -> showConfirmation(result)
 
             SafetyPolicy.Decision.ALLOW -> {
-                val response = if (result.intent == "HELP") {
-                    "Умею открывать приложения и настройки, искать в интернете, считать, ставить таймер, менять громкость, сохранять заметки и выполнять базовые системные действия через службу специальных возможностей."
-                } else {
-                    try {
-                        toolRegistry.execute(result)
-                    } catch (_: Throwable) {
-                        "Android не смог выполнить эту команду."
-                    }
-                }
-
-                if (response == null) {
-                    respond("Инструмент для «" + result.intent + "» не подключён.")
-                } else {
-                    respond(response)
-                }
+                respond(executeOrHelp(result))
             }
         }
 

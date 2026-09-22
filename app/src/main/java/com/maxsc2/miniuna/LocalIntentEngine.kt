@@ -32,6 +32,19 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("VOLUME_DOWN", 0.95f)
             t.contains("без звука") || t.contains("убери звук") ->
                 IntentResult("VOLUME_MUTE", 0.95f)
+            t.contains("что на экране") || t.contains("прочитай экран") ->
+                IntentResult("SCREEN_READ", 0.95f)
+            t.contains("прочитай уведомления") || t.contains("покажи уведомления") ||
+                t.contains("что в уведомлениях") || t == "уведомления" ->
+                IntentResult("NOTIF_READ", 0.95f)
+            t.contains("не следи за ") ->
+                IntentResult("NOTIF_UNFOLLOW", 0.9f, mapOf("app" to raw.substringAfter("не следи за ").trim()))
+            t.contains("следи за ") ->
+                IntentResult("NOTIF_FOLLOW", 0.9f, mapOf("app" to raw.substringAfter("следи за ").trim()))
+            t.contains("на ютубе") || t.contains("на ютьюбе") || t.contains("в ютубе") ->
+                IntentResult("YOUTUBE_SEARCH", 0.9f, mapOf("query" to raw))
+            (t.startsWith("отправь ") || t.startsWith("напиши ")) && (t.contains("телеграм") || t.contains("телегу")) ->
+                IntentResult("TG_SHARE", 0.9f, mapOf("text" to raw))
             t.contains("включи музыку") || t.contains("поставь музыку") ||
                 t == "музыка" || t == "музыку" ->
                 IntentResult("PLAY_MUSIC", 0.95f)
