@@ -176,8 +176,8 @@ class NeedleServer(private val context: Context) {
             val log = File(context.filesDir, "needle.log")
             if (!log.exists()) return " (лог пуст)"
             val bytes = log.readBytes()
-            val tail = String(bytes.takeLast(600).toByteArray(), StandardCharsets.UTF_8)
-            " лог: " + tail.replace(Regex("\\s+"), " ").trim().take(300)
+            val tail = String(bytes.takeLast(1500).toByteArray(), StandardCharsets.UTF_8)
+            " лог: " + tail.replace(Regex("\\s+"), " ").trim().take(600)
         } catch (_: Throwable) {
             ""
         }
