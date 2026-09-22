@@ -198,8 +198,7 @@ class NeedleEngine(
         val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("""\\s+"""), " ")
         if (t.isBlank()) return null
 
-        // Persona first: greetings and small talk never reach the tools.
-        if (
+        // Persona first: greetings and small talk never reach the tools.        if (
             t == "привет" || t.startsWith("привет ") || t.startsWith("привет,") ||
             t == "здравствуй" || t == "здравствуйте" ||
             t.contains("доброе утро") || t.contains("добрый день") || t.contains("добрый вечер")
@@ -220,6 +219,18 @@ class NeedleEngine(
         }
         if (t == "пока" || t.contains("до связи") || t.contains("до встречи")) {
             return IntentResult("PERSONA", 0.99f, mapOf("key" to "bye"), reasoning = "deterministic persona fast path")
+        }
+        if (
+            t.contains("слушай юну") || t.contains("включи прослушку") ||
+            t.contains("начни слушать") || t == "прослушка"
+        ) {
+            return IntentResult("LISTEN_ON", 0.99f, reasoning = "deterministic listen fast path")
+        }
+        if (
+            t.contains("хватит слушать") || t.contains("выключи прослушку") ||
+            t.contains("не слушай") || t.contains("останови прослушку")
+        ) {
+            return IntentResult("LISTEN_OFF", 0.99f, reasoning = "deterministic listen fast path")
         }
 
         // Music requests go before the generic app-launch path:
@@ -550,6 +561,8 @@ class NeedleEngine(
             "volume_down" -> "VOLUME_DOWN"
             "volume_mute" -> "VOLUME_MUTE"
             "volume_percent" -> "VOLUME_PERCENT"
+            "start_listening" -> "LISTEN_ON"
+            "stop_listening" -> "LISTEN_OFF"
             "set_alarm" -> "SET_ALARM"
             "dismiss_alarm" -> "ALARM_CANCEL"
             "play_music" -> "PLAY_MUSIC"

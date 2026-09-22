@@ -34,6 +34,8 @@ class ToolRegistry(
         }
         "ALARM_CANCEL" -> "Будильники отключаются вручную: открой приложение Часы."
         "VOLUME_PERCENT" -> android.setVolumePercent(result.arguments["percent"]?.toIntOrNull() ?: 50)
+        "LISTEN_ON" -> android.listenOn()
+        "LISTEN_OFF" -> android.listenOff()
         "PERSONA" -> persona(result.arguments["key"].orEmpty())
         "SET_TIMER_MINUTES" -> android.setTimer((result.arguments["minutes"]?.toIntOrNull() ?: 1) * 60)
         "SET_TIMER_HOURS" -> android.setTimer((result.arguments["hours"]?.toIntOrNull() ?: 1) * 3600)

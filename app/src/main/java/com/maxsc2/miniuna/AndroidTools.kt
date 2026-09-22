@@ -10,6 +10,7 @@ import android.os.Looper
 import android.provider.AlarmClock
 import android.provider.Settings
 import android.view.KeyEvent
+import androidx.core.content.ContextCompat
 import java.text.Normalizer
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -420,6 +421,24 @@ class AndroidTools(private val context: Context) {
             "Отправляю в Telegram."
         } catch (_: Throwable) {
             "Не получилось открыть Telegram."
+        }
+    }
+
+    fun listenOn(): String {
+        return try {
+            ContextCompat.startForegroundService(context, Intent(context, HotwordService::class.java))
+            "Слушаю. Скажи «Юна» и команду."
+        } catch (_: Throwable) {
+            "Не получилось включить прослушку."
+        }
+    }
+
+    fun listenOff(): String {
+        return try {
+            context.stopService(Intent(context, HotwordService::class.java))
+            "Прослушка выключена."
+        } catch (_: Throwable) {
+            "Не получилось выключить прослушку."
         }
     }
 

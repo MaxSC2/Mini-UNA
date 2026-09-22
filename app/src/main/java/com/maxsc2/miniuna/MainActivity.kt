@@ -96,6 +96,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             runOnUiThread { updateModelStatus() }
         }
         showPage(0)
+        intent.getStringExtra(HotwordService.EXTRA_COMMAND)?.takeIf { it.isNotBlank() }?.let { handle(it) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra(HotwordService.EXTRA_COMMAND)?.takeIf { it.isNotBlank() }?.let { handle(it) }
     }
 
     private fun setupNavigation() {
@@ -483,7 +490,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun executeOrHelp(result: IntentResult): String {
         if (result.intent == "HELP") {
-            return "Умею открывать приложения и настройки, искать в интернете и на YouTube, считать, ставить таймер и будильник, менять громкость, включать музыку, читать экран и уведомления, отправлять в Telegram и выполнять системные действия. А ещё со мной можно просто поболтать."
+            return "Умею открывать приложения и настройки, искать в интернете и на YouTube, считать, ставить таймер и будильник, менять громкость, включать музыку, читать экран и уведомления, отправлять в Telegram и выполнять системные действия. А ещё со мной можно просто поболтать. Скажи «слушай Юну» — и я буду реагировать на имя даже со свёрнутым приложением."
         }
         return try {
             toolRegistry.execute(result)

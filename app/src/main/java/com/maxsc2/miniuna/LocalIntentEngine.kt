@@ -22,6 +22,10 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("PERSONA", 0.98f, mapOf("key" to "night"))
             t == "пока" || t.contains("до связи") ->
                 IntentResult("PERSONA", 0.98f, mapOf("key" to "bye"))
+            t.contains("слушай юну") || t.contains("включи прослушку") || t.contains("начни слушать") ->
+                IntentResult("LISTEN_ON", 0.95f)
+            t.contains("хватит слушать") || t.contains("выключи прослушку") || t.contains("не слушай") ->
+                IntentResult("LISTEN_OFF", 0.95f)
             t.contains("время") || t.contains("который час") ->
                 IntentResult("GET_TIME", 0.99f)
             t.contains("дата") || t.contains("какое сегодня число") || t.contains("число сегодня") ->
