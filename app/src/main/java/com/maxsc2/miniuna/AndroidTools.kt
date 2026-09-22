@@ -58,7 +58,7 @@ class AndroidTools(private val context: Context) {
 
     fun appCount(): Int = installedApps().size
 
-    fun appCatalogForModel(maxApps: Int = 80): String {
+    fun appCatalogForModel(maxApps: Int = 60): String {
         val apps = installedApps().take(maxApps)
         if (apps.isEmpty()) return "No launchable third-party apps were found."
 
@@ -68,7 +68,7 @@ class AndroidTools(private val context: Context) {
 
         return buildString {
             append("Installed launchable apps: ")
-            append(apps.joinToString(", ") { app -> app.label + " [" + app.packageName + "]" })
+            append(apps.joinToString(", ") { it.label })
             append(". Common Russian aliases: ")
             append(aliases)
             append(". For open_app, choose the closest installed app label; do not invent an app.")
