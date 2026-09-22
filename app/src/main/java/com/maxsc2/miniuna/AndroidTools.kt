@@ -1,9 +1,10 @@
 package com.maxsc2.miniuna
 
-import android.provider.AlarmClock
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
+import android.provider.AlarmClock
 import android.provider.Settings
 import android.net.Uri
 import java.util.Locale
@@ -19,8 +20,11 @@ class AndroidTools(private val context: Context) {
         "ватсап" to "com.whatsapp",
         "youtube" to "com.google.android.youtube",
         "ютуб" to "com.google.android.youtube",
+        "youtube music" to "com.google.android.apps.youtube.music",
+        "ютуб музыка" to "com.google.android.apps.youtube.music",
         "chrome" to "com.android.chrome",
         "хром" to "com.android.chrome",
+        "google chrome" to "com.android.chrome",
         "spotify" to "com.spotify.music",
         "спотифай" to "com.spotify.music",
         "калькулятор" to "com.google.android.calculator"
@@ -29,11 +33,14 @@ class AndroidTools(private val context: Context) {
     fun openApp(name: String): String {
         val normalized = name.trim().lowercase(Locale.getDefault())
         val packageName = appPackages[normalized] ?: normalized.takeIf { it.contains('.') }
-        val launch = packageName?.let { context.packageManager.getLaunchIntentForPackage(it) }
-        if (launch != null) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(launch)
-            return "Открываю " + name + "."
+
+        if (packageName != null) {
+            val launch = context.packageManager.getLaunchIntentForPackage(packageName)
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launch)
+                return "Открываю " + name + "."
+            }
         }
 
         val byLabel = context.packageManager.getInstalledApplications(0)
@@ -41,7 +48,11 @@ class AndroidTools(private val context: Context) {
                 context.packageManager.getApplicationLabel(app).toString()
                     .lowercase(Locale.getDefault()) == normalized
             }
-        val byLabelIntent = byLabel?.let { context.packageManager.getLaunchIntentForPackage(it.packageName) }
+
+        val byLabelIntent = byLabel?.let {
+            context.packageManager.getLaunchIntentForPackage(it.packageName)
+        }
+
         if (byLabelIntent != null) {
             byLabelIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(byLabelIntent)
@@ -77,8 +88,16 @@ class AndroidTools(private val context: Context) {
         } else {
             "https://www.google.com/search?q=" + Uri.encode(value)
         }
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        return "Открываю."
+
+        return try {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            "Открываю."
+        } catch (_: ActivityNotFoundException) {
+            "На устройстве нет приложения, которое может открыть ссылку."
+        }
     }
 
     fun setTimer(seconds: Int): String {
@@ -88,23 +107,46 @@ class AndroidTools(private val context: Context) {
             putExtra(AlarmClock.EXTRA_SKIP_UI, false)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
-        return "Ставлю таймер на " + safe + " секунд."
+
+        return try {
+            context.startActivity(intent)
+            "Ставлю таймер на " + formatDuration(safe) + "."
+        } catch (_: ActivityNotFoundException) {
+            "На устройстве не найдено приложение с поддержкой системного таймера."
+        }
+    }
+
+    private fun formatDuration(seconds: Int): String = when {
+        seconds % 3600 == 0 -> (seconds / 3600).toString() + " ч."
+        seconds % 60 == 0 -> (seconds / 60).toString() + " мин."
+        else -> seconds.toString() + " сек."
     }
 
     fun volumeUp(): String {
-        audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-        return "Громкость увеличена."
+        audioManager.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.ADJUST_RAISE,
+            AudioManager.FLAG_SHOW_UI
+        )
+        return "Медиа-громкость увеличена."
     }
 
     fun volumeDown(): String {
-        audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-        return "Громкость уменьшена."
+        audioManager.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.ADJUST_LOWER,
+            AudioManager.FLAG_SHOW_UI
+        )
+        return "Медиа-громкость уменьшена."
     }
 
     fun volumeMute(): String {
-        audioManager.adjustVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI)
-        return "Переключила звук."
+        audioManager.adjustStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.ADJUST_TOGGLE_MUTE,
+            AudioManager.FLAG_SHOW_UI
+        )
+        return "Медиа-звук переключён."
     }
 
     fun accessibility(command: String): String {
@@ -129,10 +171,13 @@ class AndroidTools(private val context: Context) {
         val cleaned = expression.replace(',', '.').replace(" ", "")
         val match = Regex("^(-?\\d+(?:\\.\\d+)?)([+\\-*/])(-?\\d+(?:\\.\\d+)?)$").find(cleaned)
             ?: return "Пока считаю выражения вида 12+7."
+
         val a = match.groupValues[1].toDouble()
         val op = match.groupValues[2]
         val b = match.groupValues[3].toDouble()
+
         if (op == "/" && b == 0.0) return "На ноль делить не буду."
+
         val r = when (op) {
             "+" -> a + b
             "-" -> a - b
@@ -140,8 +185,13 @@ class AndroidTools(private val context: Context) {
             "/" -> a / b
             else -> return "Неизвестная операция."
         }
-        val shown = if (r == r.roundToInt().toDouble()) r.roundToInt().toString()
-        else "%.4f".format(Locale.US, r)
+
+        val shown = if (r == r.roundToInt().toDouble()) {
+            r.roundToInt().toString()
+        } else {
+            "%.4f".format(Locale.US, r)
+        }
+
         return "Ответ: " + shown + "."
     }
 }
