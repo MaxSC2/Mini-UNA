@@ -4,61 +4,126 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
+import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.Settings
-import android.net.Uri
+import java.text.Normalizer
 import java.util.Locale
 import kotlin.math.roundToInt
 
 class AndroidTools(private val context: Context) {
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    private val appCatalog = InstalledAppCatalog(context)
+    private val audioManager =
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    private val appPackages = mapOf(
-        "telegram" to "org.telegram.messenger",
-        "телеграм" to "org.telegram.messenger",
-        "whatsapp" to "com.whatsapp",
-        "ватсап" to "com.whatsapp",
-        "youtube" to "com.google.android.youtube",
-        "ютуб" to "com.google.android.youtube",
-        "youtube music" to "com.google.android.apps.youtube.music",
-        "ютуб музыка" to "com.google.android.apps.youtube.music",
-        "chrome" to "com.android.chrome",
-        "хром" to "com.android.chrome",
-        "google chrome" to "com.android.chrome",
-        "spotify" to "com.spotify.music",
-        "спотифай" to "com.spotify.music",
-        "калькулятор" to "com.google.android.calculator"
+    data class InstalledApp(
+        val label: String,
+        val packageName: String
     )
 
-    fun openApp(name: String): String {
-        val requested = name.trim()
-        val app = appCatalog.resolve(requested)
+    private val aliasMap = mapOf(
+        "ютуб" to listOf("youtube"),
+        "ю туб" to listOf("youtube"),
+        "хром" to listOf("chrome", "google chrome"),
+        "телеграм" to listOf("telegram"),
+        "телега" to listOf("telegram"),
+        "ватсап" to listOf("whatsapp"),
+        "вацап" to listOf("whatsapp"),
+        "спотифай" to listOf("spotify"),
+        "тикток" to listOf("tiktok"),
+        "дискорд" to listOf("discord"),
+        "инстаграм" to listOf("instagram"),
+        "инста" to listOf("instagram"),
+        "карты" to listOf("google maps", "maps"),
+        "гугл карты" to listOf("google maps", "maps"),
+        "каспи" to listOf("kaspi"),
+        "халык" to listOf("halyk")
+    )
 
-        if (app != null) {
-            val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launch)
-                return "Открываю ${app.label}."
+    fun installedApps(): List<InstalledApp> {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return context.packageManager
+            .queryIntentActivities(intent, 0)
+            .asSequence()
+            .map { info ->
+                InstalledApp(
+                    label = info.loadLabel(context.packageManager).toString(),
+                    packageName = info.activityInfo.packageName
+                )
             }
-        }
-
-        val normalized = requested.lowercase(Locale.getDefault())
-        val packageName = appPackages[normalized] ?: normalized.takeIf { it.contains('.') }
-        if (packageName != null) {
-            val launch = context.packageManager.getLaunchIntentForPackage(packageName)
-            if (launch != null) {
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launch)
-                return "Открываю $requested."
-            }
-        }
-
-        return "Не нашла установленное приложение «$requested»."
+            .distinctBy { it.packageName }
+            .filter { it.packageName != context.packageName }
+            .sortedBy { normalize(it.label) }
+            .toList()
     }
 
-    fun installedAppsSummary(): String = appCatalog.summary()
+    fun appCount(): Int = installedApps().size
+
+    fun appCatalogForModel(maxApps: Int = 80): String {
+        val apps = installedApps().take(maxApps)
+        if (apps.isEmpty()) return "No launchable third-party apps were found."
+
+        val aliases = aliasMap.entries.joinToString("; ") { entry ->
+            entry.key + " -> " + entry.value.joinToString("/")
+        }
+
+        return buildString {
+            append("Installed launchable apps: ")
+            append(apps.joinToString(", ") { app -> app.label + " [" + app.packageName + "]" })
+            append(". Common Russian aliases: ")
+            append(aliases)
+            append(". For open_app, choose the closest installed app label; do not invent an app.")
+        }
+    }
+
+    fun openApp(name: String): String {
+        val app = resolveInstalledApp(name)
+            ?: return "Не нашла установленное приложение «" + name + "»."
+
+        val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launch)
+            return "Открываю " + app.label + "."
+        }
+
+        return "У приложения «" + app.label + "» нет доступной точки запуска."
+    }
+
+    fun resolveInstalledApp(name: String): InstalledApp? {
+        val apps = installedApps()
+        if (apps.isEmpty()) return null
+
+        val query = normalize(name)
+        if (query.isBlank()) return null
+
+        apps.firstOrNull { normalize(it.label) == query }?.let { return it }
+
+        val aliasTargets = aliasMap[query].orEmpty()
+        if (aliasTargets.isNotEmpty()) {
+            apps.firstOrNull { app ->
+                val label = normalize(app.label)
+                aliasTargets.any { target ->
+                    label == normalize(target) || label.contains(normalize(target))
+                }
+            }?.let { return it }
+        }
+
+        apps.firstOrNull {
+            normalize(it.label).contains(query) || query.contains(normalize(it.label))
+        }?.let { return it }
+
+        apps.firstOrNull {
+            normalize(it.packageName.substringAfterLast('.')).contains(query)
+        }?.let { return it }
+
+        return null
+    }
+
+    private fun normalize(value: String): String {
+        return Normalizer.normalize(value, Normalizer.Form.NFKD)
+            .lowercase(Locale.getDefault())
+            .replace(Regex("[^\\p{L}\\p{N}]+"), "")
+    }
 
     fun openSettings(section: String): String {
         val s = section.trim().lowercase(Locale.getDefault())
@@ -121,29 +186,17 @@ class AndroidTools(private val context: Context) {
     }
 
     fun volumeUp(): String {
-        audioManager.adjustStreamVolume(
-            AudioManager.STREAM_MUSIC,
-            AudioManager.ADJUST_RAISE,
-            AudioManager.FLAG_SHOW_UI
-        )
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
         return "Медиа-громкость увеличена."
     }
 
     fun volumeDown(): String {
-        audioManager.adjustStreamVolume(
-            AudioManager.STREAM_MUSIC,
-            AudioManager.ADJUST_LOWER,
-            AudioManager.FLAG_SHOW_UI
-        )
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
         return "Медиа-громкость уменьшена."
     }
 
     fun volumeMute(): String {
-        audioManager.adjustStreamVolume(
-            AudioManager.STREAM_MUSIC,
-            AudioManager.ADJUST_TOGGLE_MUTE,
-            AudioManager.FLAG_SHOW_UI
-        )
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI)
         return "Медиа-звук переключён."
     }
 
@@ -184,11 +237,8 @@ class AndroidTools(private val context: Context) {
             else -> return "Неизвестная операция."
         }
 
-        val shown = if (r == r.roundToInt().toDouble()) {
-            r.roundToInt().toString()
-        } else {
-            "%.4f".format(Locale.US, r)
-        }
+        val shown = if (r == r.roundToInt().toDouble()) r.roundToInt().toString()
+        else "%.4f".format(Locale.US, r)
 
         return "Ответ: " + shown + "."
     }
