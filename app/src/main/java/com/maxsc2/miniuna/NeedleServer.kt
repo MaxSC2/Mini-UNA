@@ -123,6 +123,8 @@ class NeedleServer(private val context: Context) {
                 }
                 if (native.canExecute()) return native
                 Log.w("MiniUNA-Needle", "libneedle.so не запускаемый: ${native.absolutePath}")
+            } else {
+                Log.w("MiniUNA-Needle", "libneedle.so нет в nativeLibraryDir: ${native.absolutePath}")
             }
         } catch (_: Throwable) {
         }
