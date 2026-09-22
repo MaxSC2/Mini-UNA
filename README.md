@@ -63,7 +63,7 @@ CI собирает подписанный `release`-APK постоянным к
 ```
 app/src/main/
   AndroidManifest.xml
-  assets/needle_tools.json        # 18 function-tools для Needle
+  assets/needle_tools.json        # 28 function-tools для Needle
   java/com/cactus/Cactus.kt       # JNI-обёртка движка
   java/com/maxsc2/miniuna/
     MainActivity.kt               # экраны, голос, TTS

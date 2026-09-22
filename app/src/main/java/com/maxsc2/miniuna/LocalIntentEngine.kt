@@ -25,7 +25,11 @@ class LocalIntentEngine : IntentEngine {
             t.startsWith("заметка ") || t.startsWith("запиши ") ->
                 IntentResult("SAVE_NOTE", 0.95f, mapOf("note" to raw.substringAfter(" ").trim()))
             t.contains("таймер") || t.startsWith("поставь таймер") ->
-                IntentResult("SET_TIMER", 0.92f, mapOf("seconds" to parseTimerSeconds(raw).toString()))
+                if (t == "таймер" || t == "таймерчик" || t == "поставь таймер" || t == "включи таймер") {
+                    IntentResult("SET_TIMER_MINUTES", 0.92f, mapOf("minutes" to "1"))
+                } else {
+                    IntentResult("SET_TIMER", 0.92f, mapOf("seconds" to parseTimerSeconds(raw).toString()))
+                }
             t.contains("громче") || t.contains("увеличь громкость") ->
                 IntentResult("VOLUME_UP", 0.95f)
             t.contains("тише") || t.contains("уменьши громкость") ->
