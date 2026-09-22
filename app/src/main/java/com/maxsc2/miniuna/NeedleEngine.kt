@@ -72,7 +72,7 @@ class NeedleEngine(
     fun isNativeReady(): Boolean = nativeReady && model != 0L
 
     private fun fastPath(raw: String): IntentResult? {
-        val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("\\s+"), " ")
+        val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("""\\s+"""), " ")
         if (t.isBlank()) return null
 
         // Explicit app launch commands. "найди Chrome" stays a web-search request;
