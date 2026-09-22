@@ -179,5 +179,37 @@
       "description": "Open Android accessibility settings so the user can enable Mini-UNA system controls.",
       "parameters": {"type": "object", "properties": {}, "required": []}
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "play_music",
+      "description": "Play music: open the user's music app (Spotify, Yandex Music, YouTube Music or system player) and start playback. Use for requests like play music, turn on music.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "media_play_pause",
+      "description": "Toggle play/pause for the currently playing media.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "media_next",
+      "description": "Skip to the next media track.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "media_previous",
+      "description": "Go back to the previous media track.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
   }
 ]

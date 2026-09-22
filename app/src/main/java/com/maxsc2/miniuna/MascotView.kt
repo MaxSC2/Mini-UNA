@@ -153,7 +153,7 @@ class MascotView @JvmOverloads constructor(
 
         val cx = width / 2f
         val cy = height / 2f
-        val radius = min(width, height) * 0.30f
+        val radius = min(width, height) * 0.34f
 
         rebuildShadersIfNeeded(cx, cy, radius)
 
@@ -326,7 +326,7 @@ class MascotView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 if (tracking) {
-                    val sphereRadius = min(width, height) * 0.30f
+                    val sphereRadius = min(width, height) * 0.34f
                     val sphereCx = width / 2f
                     val sphereCy = height / 2f
                     targetX = ((event.x - sphereCx) / sphereRadius).coerceIn(-1f, 1f)

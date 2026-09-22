@@ -32,6 +32,15 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("VOLUME_DOWN", 0.95f)
             t.contains("без звука") || t.contains("убери звук") ->
                 IntentResult("VOLUME_MUTE", 0.95f)
+            t.contains("включи музыку") || t.contains("поставь музыку") ||
+                t == "музыка" || t == "музыку" ->
+                IntentResult("PLAY_MUSIC", 0.95f)
+            t.contains("следующий трек") || t.contains("следующая песня") ->
+                IntentResult("MEDIA_NEXT", 0.95f)
+            t.contains("предыдущий трек") || t.contains("предыдущая песня") ->
+                IntentResult("MEDIA_PREV", 0.95f)
+            t == "пауза" || t.contains("на паузу") || t.contains("продолжи") ->
+                IntentResult("MEDIA_TOGGLE", 0.95f)
             t == "назад" || t == "вернись назад" ->
                 IntentResult("BACK", 0.96f)
             t == "домой" || t == "на главный экран" ->

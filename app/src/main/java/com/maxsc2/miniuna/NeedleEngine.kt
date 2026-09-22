@@ -117,6 +117,43 @@ class NeedleEngine(
         val t = raw.trim().lowercase(Locale.getDefault()).replace(Regex("""\\s+"""), " ")
         if (t.isBlank()) return null
 
+        // Music requests go before the generic app-launch path:
+        // "включи музыку" must start playback, not just open an app page.
+        if (
+            t.contains("включи музыку") ||
+            t.contains("включи музычку") ||
+            t.contains("поставь музыку") ||
+            t == "музыка" ||
+            t == "музыку"
+        ) {
+            return IntentResult("PLAY_MUSIC", 0.995f, reasoning = "deterministic music fast path")
+        }
+
+        if (
+            t.contains("следующий трек") ||
+            t.contains("следующая песня") ||
+            t.contains("включи следующую")
+        ) {
+            return IntentResult("MEDIA_NEXT", 0.995f, reasoning = "deterministic music fast path")
+        }
+
+        if (
+            t.contains("предыдущий трек") ||
+            t.contains("предыдущая песня")
+        ) {
+            return IntentResult("MEDIA_PREV", 0.995f, reasoning = "deterministic music fast path")
+        }
+
+        if (
+            t == "пауза" ||
+            t.contains("на паузу") ||
+            t.contains("с паузы") ||
+            t == "продолжи" ||
+            t == "играй"
+        ) {
+            return IntentResult("MEDIA_TOGGLE", 0.995f, reasoning = "deterministic music fast path")
+        }
+
         // Explicit app launch commands. "найди Chrome" stays a web-search request;
         // "открой Chrome" is an app-launch request.
         val appMatch = Regex(
@@ -330,6 +367,10 @@ class NeedleEngine(
             "volume_up" -> "VOLUME_UP"
             "volume_down" -> "VOLUME_DOWN"
             "volume_mute" -> "VOLUME_MUTE"
+            "play_music" -> "PLAY_MUSIC"
+            "media_play_pause" -> "MEDIA_TOGGLE"
+            "media_next" -> "MEDIA_NEXT"
+            "media_previous" -> "MEDIA_PREV"
             "go_back" -> "BACK"
             "go_home" -> "HOME"
             "open_recents" -> "RECENTS"
@@ -365,41 +406,23 @@ class NeedleEngine(
                 }
 
                 val modelFile = File(context.filesDir, "needle3.cact")
-                if (!modelFile.exists() || modelFile.length() == 0L) {
-                    try {
-                        context.assets.open("needle3.cact").use { input ->
-                            FileOutputStream(modelFile).use { output -> input.copyTo(output) }
-                        }
-                    } catch (e: Throwable) {
-                        lastError = "нет needle3.cact в APK (assets): ${e.message}"
-                        Log.w("MiniUNA-Needle", lastError)
-                        return false
-                    }
-                }
+                if (!copyModel(modelFile)) return false
+                if (tryInit(modelFile)) return true
 
-                try {
-                    model = CactusJNI.nativeInit(modelFile.absolutePath, null, false)
-                } catch (e: UnsatisfiedLinkError) {
-                    lastError = "нет libcactus_engine.so для этого ABI: ${e.message}"
-                    Log.w("MiniUNA-Needle", lastError)
-                    nativeReady = false
-                    return false
-                } catch (e: Throwable) {
-                    lastError = "nativeInit упал: ${e.message}"
-                    Log.w("MiniUNA-Needle", lastError)
-                    nativeReady = false
-                    return false
+                // One retry with a fresh copy: the first copy may be truncated
+                // (e.g. process died mid-copy), and a partial file always fails init.
+                if (!initRetried) {
+                    initRetried = true
+                    Log.w("MiniUNA-Needle", "init failed, retrying with fresh copy")
+                    try {
+                        modelFile.delete()
+                    } catch (_: Throwable) {
+                    }
+                    if (!copyModel(modelFile)) return false
+                    if (tryInit(modelFile)) return true
                 }
-                if (model == 0L) {
-                    lastError = "nativeInit вернул 0 (память или файл модели?)"
-                    Log.w("MiniUNA-Needle", lastError)
-                    nativeReady = false
-                    return false
-                }
-                nativeReady = true
-                lastError = "ok"
-                Log.i("MiniUNA-Needle", "native model ready")
-                true
+                nativeReady = false
+                false
             } catch (e: Throwable) {
                 lastError = "ensure: ${e.message}"
                 Log.w("MiniUNA-Needle", lastError)
@@ -407,6 +430,56 @@ class NeedleEngine(
                 false
             }
         }
+    }
+
+    @Volatile private var initRetried = false
+
+    private fun copyModel(modelFile: File): Boolean {
+        if (modelFile.exists() && modelFile.length() > 0L) return true
+        return try {
+            context.assets.open("needle3.cact").use { input ->
+                FileOutputStream(modelFile).use { output -> input.copyTo(output) }
+            }
+            true
+        } catch (e: Throwable) {
+            lastError = "нет needle3.cact в APK (assets): ${e.message}"
+            Log.w("MiniUNA-Needle", lastError)
+            false
+        }
+    }
+
+    private fun tryInit(modelFile: File): Boolean {
+        val sizeMb = modelFile.length() / 1048576.0
+        try {
+            model = CactusJNI.nativeInit(modelFile.absolutePath, null, false)
+        } catch (e: UnsatisfiedLinkError) {
+            lastError = "нет libcactus_engine.so для этого ABI: ${e.message}"
+            Log.w("MiniUNA-Needle", lastError)
+            nativeReady = false
+            return false
+        } catch (e: Throwable) {
+            lastError = "nativeInit упал: ${e.message}"
+            Log.w("MiniUNA-Needle", lastError)
+            nativeReady = false
+            return false
+        }
+        if (model == 0L) {
+            val detail = try {
+                CactusJNI.nativeGetLastError()
+            } catch (_: Throwable) {
+                ""
+            }
+            val size = "%.1f".format(Locale.US, sizeMb)
+            lastError = "nativeInit вернул 0 (файл $size МБ)" +
+                if (detail.isNullOrBlank()) " (память или файл модели?)" else ": $detail"
+            Log.w("MiniUNA-Needle", lastError)
+            nativeReady = false
+            return false
+        }
+        nativeReady = true
+        lastError = "ok"
+        Log.i("MiniUNA-Needle", "native model ready")
+        return true
     }
 
     fun close() {

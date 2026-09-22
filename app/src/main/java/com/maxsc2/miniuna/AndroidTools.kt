@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.Settings
+import android.view.KeyEvent
 import java.text.Normalizer
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -36,7 +37,15 @@ class AndroidTools(private val context: Context) {
         "карты" to listOf("google maps", "maps"),
         "гугл карты" to listOf("google maps", "maps"),
         "каспи" to listOf("kaspi"),
-        "халык" to listOf("halyk")
+        "халык" to listOf("halyk"),
+        "музыка" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
+        "музыку" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
+        "яндексмузыка" to listOf("yandexmusic", "яндексмузыка"),
+        "ютубмузыка" to listOf("youtubemusic")
+    )
+
+    private val musicPriority = listOf(
+        "spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player", "аудио", "audio"
     )
 
     fun installedApps(): List<InstalledApp> {
@@ -198,6 +207,42 @@ class AndroidTools(private val context: Context) {
     fun volumeMute(): String {
         audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI)
         return "Медиа-звук переключён."
+    }
+
+    fun playMusic(): String {
+        val app = musicPriority.firstNotNullOfOrNull { hint -> resolveInstalledApp(hint) }
+            ?: return "Не нашла музыкальное приложение. Установи Spotify или Яндекс Музыку."
+
+        return try {
+            context.packageManager.getLaunchIntentForPackage(app.packageName)?.let {
+                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(it)
+            }
+            mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY)
+            "Включаю музыку в " + app.label + "."
+        } catch (_: Throwable) {
+            "Не получилось открыть «" + app.label + "»."
+        }
+    }
+
+    fun mediaToggle(): String =
+        if (mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)) "Переключила воспроизведение."
+        else "Не получилось отправить медиа-кнопку."
+
+    fun mediaNext(): String =
+        if (mediaKey(KeyEvent.KEYCODE_MEDIA_NEXT)) "Следующий трек."
+        else "Не получилось отправить медиа-кнопку."
+
+    fun mediaPrevious(): String =
+        if (mediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)) "Предыдущий трек."
+        else "Не получилось отправить медиа-кнопку."
+
+    private fun mediaKey(keyCode: Int): Boolean = try {
+        audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        true
+    } catch (_: Throwable) {
+        false
     }
 
     fun accessibility(command: String): String {
