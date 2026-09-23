@@ -153,6 +153,15 @@ class NeedleEngine(
         }
     }
 
+    private fun confThreshold(): Float {
+        return try {
+            context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
+                .getInt("needle_conf", (CONFIDENCE_THRESHOLD * 100).toInt()) / 100f
+        } catch (_: Throwable) {
+            CONFIDENCE_THRESHOLD
+        }
+    }
+
     fun isNativeReady(): Boolean = nativeReady
 
     fun nativeStatus(): String = when {
@@ -424,10 +433,35 @@ class NeedleEngine(
             }
         }
 
+        // Music pause: explicit stop, never a toggle.
+        if (
+            t.contains("выключи музыку") || t.contains("выключи музон") ||
+            t.contains("останови музыку") || t.contains("останови музон") ||
+            t == "стоп музыка" || t == "стоп музон" || t == "стоп"
+        ) {
+            return IntentResult("MEDIA_PAUSE", 0.99f, reasoning = "deterministic music fast path")
+        }
+
+        // Connectivity panels (system sheets with a switch, no special permission).
+        if (t.contains("вайфай") || t.contains("вай-фай") || t.contains("вай фай") || t.contains("wi-fi") || t.contains("wifi")) {
+            return IntentResult("WIFI_PANEL", 0.97f, reasoning = "deterministic connectivity fast path")
+        }
+        if (t.contains("блютуз") || t.contains("блютус") || t.contains("bluetooth")) {
+            return IntentResult("BT_PANEL", 0.97f, reasoning = "deterministic connectivity fast path")
+        }
+
         // Alarm clock: time and days are parsed here, gaps are asked later.
         if (t.contains("будильник") || t.contains("будильника")) {
             if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
-                return IntentResult("ALARM_CANCEL", 0.97f, reasoning = "deterministic alarm fast path")
+                val args = mutableMapOf<String, String>()
+                parseTimeRu(t)?.let { (h, m) ->
+                    args["hour"] = h.toString()
+                    args["minutes"] = m.toString()
+                }
+                parseDurationSec(t)?.let { s ->
+                    args["snooze_minutes"] = (s / 60).coerceAtLeast(1).toString()
+                }
+                return IntentResult("ALARM_DISMISS", 0.97f, args, reasoning = "deterministic alarm fast path")
             }
             val args = mutableMapOf<String, String>()
             parseTimeRu(t)?.let { (h, m) ->
@@ -645,10 +679,14 @@ class NeedleEngine(
             "volume_down" -> "VOLUME_DOWN"
             "volume_mute" -> "VOLUME_MUTE"
             "volume_percent" -> "VOLUME_PERCENT"
+            "media_pause" -> "MEDIA_PAUSE"
+            "dismiss_alarm" -> "ALARM_DISMISS"
+            "cancel_timer" -> "TIMER_CANCEL"
+            "wifi_panel" -> "WIFI_PANEL"
+            "bluetooth_panel" -> "BT_PANEL"
             "start_listening" -> "LISTEN_ON"
             "stop_listening" -> "LISTEN_OFF"
             "set_alarm" -> "SET_ALARM"
-            "dismiss_alarm" -> "ALARM_CANCEL"
             "play_music" -> "PLAY_MUSIC"
             "media_play_pause" -> "MEDIA_TOGGLE"
             "media_next" -> "MEDIA_NEXT"

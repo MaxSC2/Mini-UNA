@@ -98,13 +98,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             runOnUiThread { updateModelStatus() }
         }
         showPage(0)
-        intent.getStringExtra(HotwordService.EXTRA_COMMAND)?.takeIf { it.isNotBlank() }?.let { handle(it) }
+        handleHotwordExtra(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent.getStringExtra(HotwordService.EXTRA_COMMAND)?.takeIf { it.isNotBlank() }?.let { handle(it) }
+        handleHotwordExtra(intent)
+    }
+
+    private val ackPhrases = listOf("Я тут.", "Слушаю.", "Ага?", "Что такое?", "На связи.")
+
+    private fun handleHotwordExtra(intent: Intent) {
+        if (!intent.hasExtra(HotwordService.EXTRA_COMMAND)) return
+        val cmd = intent.getStringExtra(HotwordService.EXTRA_COMMAND).orEmpty()
+        if (cmd.isBlank()) respond(ackPhrases.random()) else handle(cmd)
     }
 
     private fun setupNavigation() {

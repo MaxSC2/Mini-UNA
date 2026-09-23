@@ -49,7 +49,15 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("SAVE_NOTE", 0.95f, mapOf("note" to raw.substringAfter(" ").trim()))
             t.contains("будильник") || t.contains("будильника") ->
                 if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
-                    IntentResult("ALARM_CANCEL", 0.93f)
+                    val args = mutableMapOf<String, String>()
+                    parseTimeRu(t)?.let { (h, m) ->
+                        args["hour"] = h.toString()
+                        args["minutes"] = m.toString()
+                    }
+                    parseDurationSec(t)?.let { s ->
+                        args["snooze_minutes"] = (s / 60).coerceAtLeast(1).toString()
+                    }
+                    IntentResult("ALARM_DISMISS", 0.93f, args)
                 } else {
                     val args = mutableMapOf<String, String>()
                     parseTimeRu(t)?.let { (h, m) ->
@@ -75,6 +83,16 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("VOLUME_DOWN", 0.95f)
             t.contains("без звука") || t.contains("убери звук") ->
                 IntentResult("VOLUME_MUTE", 0.95f)
+            t.contains("выключи музыку") || t.contains("выключи музон") ||
+                t.contains("останови музыку") || t.contains("останови музон") || t == "стоп" ->
+                IntentResult("MEDIA_PAUSE", 0.95f)
+            t.contains("отмени таймер") || t.contains("выключи таймер") || t.contains("убери таймер") ->
+                IntentResult("TIMER_CANCEL", 0.93f)
+            t.contains("вайфай") || t.contains("вай-фай") || t.contains("вай фай") ||
+                t.contains("wi-fi") || t.contains("wifi") ->
+                IntentResult("WIFI_PANEL", 0.93f)
+            t.contains("блютуз") || t.contains("блютус") || t.contains("bluetooth") ->
+                IntentResult("BT_PANEL", 0.93f)
             t.startsWith("напомни ") ->
                 IntentResult("REMIND", 0.9f, mapOf("seconds" to "", "text" to raw.substringAfter("напомни ").trim()))
             t.contains("что на экране") || t.contains("прочитай экран") ->

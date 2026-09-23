@@ -32,7 +32,19 @@ class ToolRegistry(
                 days
             )
         }
-        "ALARM_CANCEL" -> "Будильники отключаются вручную: открой приложение Часы."
+        "ALARM_DISMISS" -> {
+            val days = result.arguments["days"]?.split(",")?.mapNotNull { it.toIntOrNull() }
+            android.dismissAlarm(
+                result.arguments["hour"]?.toIntOrNull(),
+                result.arguments["minutes"]?.toIntOrNull(),
+                result.arguments["snooze_minutes"]?.toIntOrNull(),
+                days
+            )
+        }
+        "TIMER_CANCEL" -> android.dismissTimer()
+        "WIFI_PANEL" -> android.connectivityPanel("wifi")
+        "BT_PANEL" -> android.connectivityPanel("bluetooth")
+        "MEDIA_PAUSE" -> android.pauseMusic()
         "VOLUME_PERCENT" -> android.setVolumePercent(result.arguments["percent"]?.toIntOrNull() ?: 50)
         "LISTEN_ON" -> android.listenOn()
         "LISTEN_OFF" -> android.listenOff()

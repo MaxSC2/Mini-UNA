@@ -170,7 +170,8 @@ class HotwordService : Service() {
                         Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP
                 )
-                if (command.isNotBlank()) putExtra(EXTRA_COMMAND, command)
+                // Пустая команда = просто позвали: приложение ответит «я тут».
+                putExtra(EXTRA_COMMAND, command)
             } ?: return
             startActivity(intent)
         } catch (_: Throwable) {

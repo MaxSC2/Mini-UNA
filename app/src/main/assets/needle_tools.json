@@ -349,5 +349,53 @@
         "required": ["text"]
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "media_pause",
+      "description": "Pause the currently playing media (explicit stop, never toggles).",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "dismiss_alarm",
+      "description": "Turn off an alarm clock. Hour is 0-23, minutes 0-59. snooze_minutes postpones it instead of turning off.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "hour": {"type": "integer", "minimum": 0, "maximum": 23},
+          "minutes": {"type": "integer", "minimum": 0, "maximum": 59},
+          "snooze_minutes": {"type": "integer", "minimum": 1}
+        },
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cancel_timer",
+      "description": "Dismiss the currently running timer.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "wifi_panel",
+      "description": "Open the system Wi-Fi settings panel with a switch.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "bluetooth_panel",
+      "description": "Open the system Bluetooth settings panel with a switch.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
   }
 ]

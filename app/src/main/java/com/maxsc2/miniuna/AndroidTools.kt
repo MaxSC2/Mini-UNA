@@ -44,6 +44,7 @@ class AndroidTools(private val context: Context) {
         "гугл карты" to listOf("google maps", "maps"),
         "каспи" to listOf("kaspi"),
         "халык" to listOf("halyk"),
+        "часы" to listOf("clock", "deskclock", "часы", "будильник"),
         "музыка" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
         "музыку" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
         "музон" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
@@ -369,6 +370,66 @@ class AndroidTools(private val context: Context) {
     fun mediaPrevious(): String =
         if (mediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)) "Предыдущий трек."
         else "Не получилось отправить медиа-кнопку."
+
+    fun pauseMusic(): String =
+        if (mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE)) "Музыка остановлена."
+        else "Не получилось остановить. Рядом нет активного плеера."
+
+    fun dismissAlarm(hour: Int?, minute: Int?, snoozeMinutes: Int?, days: List<Int>? = null): String {
+        return try {
+            val intent = Intent(AlarmClock.ACTION_DISMISS_ALARM).apply {
+                if (hour != null && minute != null) {
+                    putExtra(AlarmClock.EXTRA_HOUR, hour.coerceIn(0, 23))
+                    putExtra(AlarmClock.EXTRA_MINUTES, minute.coerceIn(0, 59))
+                }
+                if (snoozeMinutes != null && snoozeMinutes > 0) {
+                    putExtra(AlarmClock.EXTRA_ALARM_SNOOZE_DURATION, snoozeMinutes)
+                }
+                if (!days.isNullOrEmpty()) {
+                    putIntegerArrayListExtra(AlarmClock.EXTRA_DAYS, ArrayList(days))
+                }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            "Выключаю будильник."
+        } catch (_: Throwable) {
+            "Не получилось. Открой приложение Часы и выключи вручную."
+        }
+    }
+
+    fun openClock(): String {
+        val app = resolveInstalledApp("часы")
+        if (app != null) return openApp(app.label)
+        return "Таймеры отключаются в приложении Часы. Открыть его?"
+    }
+
+    fun dismissTimer(): String {
+        return try {
+            context.startActivity(
+                Intent(AlarmClock.ACTION_DISMISS_TIMER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            "Выключаю таймер."
+        } catch (_: Throwable) {
+            openClock()
+        }
+    }
+
+    fun connectivityPanel(kind: String): String {
+        val action = when (kind) {
+            "bluetooth" -> "android.settings.panel.action.BLUETOOTH"
+            else -> "android.settings.panel.action.WIFI"
+        }
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                if (kind == "bluetooth") "Открываю панель Bluetooth." else "Открываю панель Wi-Fi."
+            } else {
+                openSettings(kind)
+            }
+        } catch (_: Throwable) {
+            openSettings(kind)
+        }
+    }
 
     fun screenContext(maxChars: Int = 800): String {
         val service = AccessibilityBridgeService.instance ?: return ""
