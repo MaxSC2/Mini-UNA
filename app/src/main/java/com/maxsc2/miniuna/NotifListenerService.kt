@@ -59,7 +59,8 @@ class NotifListenerService : NotificationListenerService() {
             val sbn = if (pkg.isNullOrBlank()) lastWithReply()
             else lastFor(pkg) ?: lastWithReply() ?: return false
             val ctx = appContext ?: return false
-            for (action in sbn.notification?.actions.orEmpty()) {
+            val actions = sbn?.notification?.actions ?: emptyArray()
+            for (action in actions) {
                 val inputs = action.remoteInputs ?: continue
                 if (inputs.isEmpty()) continue
                 return try {
