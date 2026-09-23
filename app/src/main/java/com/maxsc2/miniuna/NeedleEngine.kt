@@ -160,6 +160,11 @@ class NeedleEngine(
             (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери"))
     }
 
+    private fun hasAlarmWord(text: String): Boolean {
+        val t = text.lowercase(java.util.Locale.getDefault())
+        return t.contains("будильник")
+    }
+
     private fun confThreshold(): Float {
         return try {
             context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
@@ -663,6 +668,13 @@ class NeedleEngine(
                 // Страховка: «выключи будильник», распознанный как SET_ALARM, — это DISMISS.
                 if (result.intent == "SET_ALARM" && hasDismissWords(originalText)) {
                     result = result.copy(intent = "ALARM_DISMISS")
+                }
+                // Страховка 2: «будильник», распознанный как таймер, — это будильник.
+                // Время не переносим (неоднозначно), спросим слотами: вопрос лучше чужого таймера.
+                if (result.intent in setOf("SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS") &&
+                    hasAlarmWord(originalText)
+                ) {
+                    result = result.copy(intent = "SET_ALARM", arguments = emptyMap())
                 }
                 if (result.intent == "UNKNOWN") continue
                 if (result.arguments.isEmpty() && result.intent in ARG_REQUIRED) continue
