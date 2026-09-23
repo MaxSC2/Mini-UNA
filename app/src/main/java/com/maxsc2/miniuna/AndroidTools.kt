@@ -404,6 +404,13 @@ class AndroidTools(private val context: Context) {
         else "Не получилось остановить. Рядом нет активного плеера."
 
     fun dismissAlarm(hour: Int?, minute: Int?, snoozeMinutes: Int?, days: List<Int>? = null): String {
+        try {
+            val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (am.nextAlarmClock == null) {
+                return "Активных будильников нет — выключать нечего."
+            }
+        } catch (_: Throwable) {
+        }
         return try {
             val intent = Intent(AlarmClock.ACTION_DISMISS_ALARM).apply {
                 if (hour != null && minute != null) {

@@ -66,7 +66,9 @@ fun parseDaysRu(raw: String): List<Int>? {
     if (listOf("выходные", "выходным", "выходных").any { containsWord(t, it) }) {
         return listOf(Calendar.SUNDAY, Calendar.SATURDAY)
     }
-    if (listOf("каждый день", "ежедневно", "всегда", "все дни").any { t.contains(it) }) {
+    if (listOf("каждый день", "ежедневно", "всегда", "все дни").any { t.contains(it) } ||
+        containsWord(t, "все")
+    ) {
         return listOf(
             Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY,
             Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY
@@ -112,7 +114,7 @@ data class PendingSlot(
 )
 
 object SlotHelper {
-    fun missing(intent: String, args: Map<String, String>): List<String> = when (intent) {
+    fun missing(intent: String, args: Map<String, String>, raw: String = ""): List<String> = when (intent) {
         "SET_ALARM" -> {
             val out = mutableListOf<String>()
             if (args["hour"].isNullOrBlank() || args["minutes"].isNullOrBlank()) out.add("time")
@@ -126,6 +128,7 @@ object SlotHelper {
         "ALARM_DISMISS" -> {
             val out = mutableListOf<String>()
             if (args["hour"].isNullOrBlank() || args["minutes"].isNullOrBlank()) out.add("dismiss_time")
+            else if (args["days"].isNullOrBlank()) out.add("dismiss_days")
             out
         }
         "NOTIF_REPLY" -> {
@@ -143,6 +146,7 @@ object SlotHelper {
         "duration" -> "На сколько поставить таймер?"
         "delay" -> "Через сколько напомнить?"
         "dismiss_time" -> "Во сколько будильник выключить?"
+        "dismiss_days" -> "На какой день выключить? Скажи день, будни, выходные или «все»."
         "app" -> "Кому ответить?"
         "reply_text" -> "Что ответить?"
         else -> "Уточни, пожалуйста."
@@ -201,6 +205,13 @@ object SlotHelper {
                 p.args["hour"] = h.toString()
                 p.args["minutes"] = m.toString()
                 p.missing -= "dismiss_time"
+                progressed = true
+            }
+        }
+        if ("dismiss_days" in p.missing) {
+            parseDaysRu(answer)?.let { days ->
+                p.args["days"] = days.joinToString(",")
+                p.missing -= "dismiss_days"
                 progressed = true
             }
         }

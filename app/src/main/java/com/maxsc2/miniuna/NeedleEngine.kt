@@ -154,6 +154,12 @@ class NeedleEngine(
         }
     }
 
+    private fun hasDismissWords(text: String): Boolean {
+        val t = text.lowercase(java.util.Locale.getDefault())
+        return t.contains("будильник") &&
+            (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери"))
+    }
+
     private fun confThreshold(): Float {
         return try {
             context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
@@ -243,9 +249,14 @@ class NeedleEngine(
         if (t == "пока" || t.contains("до связи") || t.contains("до встречи")) {
             return IntentResult("PERSONA", 0.99f, mapOf("key" to "bye"), reasoning = "deterministic persona fast path")
         }
+        // Включение прослушки: «слушай юну», «слушай, юна», «юна, слушай» — любой порядок.
+        val listenNorm = t.replace(",", " ").replace(Regex("""\s+"""), " ").trim()
         if (
-            t.contains("слушай юну") || t.contains("включи прослушку") ||
-            t.contains("начни слушать") || t == "прослушка"
+            (listenNorm.contains("слушай") && (listenNorm.contains("юна") || listenNorm.contains("уна")) &&
+                !listenNorm.contains("не слушай")) ||
+            listenNorm.contains("включи прослушку") ||
+            listenNorm.contains("начни слушать") ||
+            listenNorm == "прослушка"
         ) {
             return IntentResult("LISTEN_ON", 0.99f, reasoning = "deterministic listen fast path")
         }
@@ -648,7 +659,11 @@ class NeedleEngine(
             val out = mutableListOf<IntentResult>()
             val seen = HashSet<String>()
             for (i in 0 until minOf(calls.length(), 4)) {
-                val result = parseCall(calls.getJSONObject(i), confidence, reasoning)
+                var result = parseCall(calls.getJSONObject(i), confidence, reasoning)
+                // Страховка: «выключи будильник», распознанный как SET_ALARM, — это DISMISS.
+                if (result.intent == "SET_ALARM" && hasDismissWords(originalText)) {
+                    result = result.copy(intent = "ALARM_DISMISS")
+                }
                 if (result.intent == "UNKNOWN") continue
                 if (result.arguments.isEmpty() && result.intent in ARG_REQUIRED) continue
                 val key = result.intent + "|" + result.arguments.toSortedMap().toString()

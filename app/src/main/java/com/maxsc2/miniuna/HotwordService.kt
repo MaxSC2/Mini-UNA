@@ -34,12 +34,21 @@ class HotwordService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var restartDelayMs = 1000L
     private val handler = Handler(Looper.getMainLooper())
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        // Частичный вейклок: шанс слушать с выключенным экраном.
+        // Гарантий нет (Doze/прошивка), системного уровня не будет.
+        try {
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "MiniUNA:hotword")
+            wakeLock?.acquire()
+        } catch (_: Throwable) {
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -54,6 +63,11 @@ class HotwordService : Service() {
     override fun onDestroy() {
         listening = false
         running = false
+        try {
+            wakeLock?.release()
+        } catch (_: Throwable) {
+        }
+        wakeLock = null
         handler.removeCallbacksAndMessages(null)
         try {
             recognizer?.destroy()
