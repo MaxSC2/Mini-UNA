@@ -224,17 +224,13 @@ class NeedleServer(private val context: Context) {
         val deadline = System.currentTimeMillis() + START_TIMEOUT_MS
         while (System.currentTimeMillis() < deadline) {
             if (myGen != abortGen) return false
-            val alive: Boolean
+            val p = synchronized(lock) { process } ?: return false
             var exitedCode: Int? = null
-            synchronized(lock) {
-                val p = process
-                if (p == null) return false
-                try {
-                    exitedCode = p.exitValue()
-                    alive = false
-                } catch (_: IllegalThreadStateException) {
-                    alive = true
-                }
+            val alive = try {
+                exitedCode = p.exitValue()
+                false
+            } catch (_: IllegalThreadStateException) {
+                true
             }
             if (!alive) {
                 lastError = "процесс needle завершился при старте (код $exitedCode)" + logTail()
