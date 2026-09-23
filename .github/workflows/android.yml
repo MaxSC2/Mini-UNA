@@ -79,8 +79,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Unit tests (routing)
+        run: bash gradlew :app:testDebugUnitTest --no-daemon
+
       - name: Build release APK
-        run: gradle assembleRelease --no-daemon
+        run: bash gradlew assembleRelease --no-daemon
         env:
           VERSION_CODE: ${{ github.run_number }}
           KEYSTORE_PATH: /tmp/mini-una-release.p12

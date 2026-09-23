@@ -40,7 +40,8 @@ class LocalIntentEngine : IntentEngine {
                     "PLAY_MUSIC", 0.93f,
                     mapOf("app" to "NeonWave", "playlist" to raw.substringAfter("включи плейлист ").trim())
                 )
-            t.startsWith("открой ") || t.startsWith("запусти ") || t.startsWith("открой приложение ") ->
+            (t.startsWith("открой ") || t.startsWith("запусти ") || t.startsWith("открой приложение ")) &&
+                !t.contains("настройк") ->
                 IntentResult("OPEN_APP", 0.90f, mapOf("app" to raw.substringAfter(" ").trim()))
             t.startsWith("настройки") || t.contains("открой настройки") ->
                 IntentResult("OPEN_SETTINGS", 0.92f, mapOf("section" to raw.replaceFirst(Regex("(?i)^.*?настройки"), "").trim()))
