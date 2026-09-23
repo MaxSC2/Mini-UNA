@@ -746,6 +746,7 @@ class NeedleEngine(
     }
 
     fun restartServer(): Boolean {
+        server.abort()
         nativeReady = false
         return ensureServer()
     }

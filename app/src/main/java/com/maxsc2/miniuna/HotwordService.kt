@@ -24,6 +24,10 @@ class HotwordService : Service() {
         private const val CHANNEL_ID = "hotword"
         private const val NOTIF_ID = 42
         private val KEYWORDS = listOf("юна", "уна")
+
+        @Volatile
+        var running = false
+            private set
     }
 
     @Volatile private var listening = false
@@ -41,6 +45,7 @@ class HotwordService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundNotif()
         listening = true
+        running = true
         restartDelayMs = 1000L
         listenOnce()
         return START_STICKY
@@ -48,6 +53,7 @@ class HotwordService : Service() {
 
     override fun onDestroy() {
         listening = false
+        running = false
         handler.removeCallbacksAndMessages(null)
         try {
             recognizer?.destroy()

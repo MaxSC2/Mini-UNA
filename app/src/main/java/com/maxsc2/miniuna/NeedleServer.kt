@@ -44,8 +44,18 @@ class NeedleServer(private val context: Context) {
 
     private val lock = Any()
     private val callLock = Any()
+    private val startLock = Any()
     private var process: Process? = null
     private var binaryPath: String? = null
+    @Volatile private var abortGen = 0
+
+    fun abort() {
+        abortGen++
+        try {
+            synchronized(lock) { stopLocked() }
+        } catch (_: Throwable) {
+        }
+    }
 
     fun isAlive(): Boolean {
         synchronized(lock) {
@@ -60,19 +70,22 @@ class NeedleServer(private val context: Context) {
     }
 
     fun ensureStarted(): Boolean {
-        synchronized(lock) {
-            if (isAlive() && isPortOpen()) return true
-            stopLocked()
+        synchronized(startLock) {
+            synchronized(lock) {
+                if (isAlive() && isPortOpen()) return true
+                stopLocked()
+            }
+            val myGen = abortGen
             if (!stageFiles()) return false
-            val bin = binaryPath ?: run {
+            val bin = synchronized(lock) { binaryPath } ?: run {
                 lastError = "нет файлов needle в APK"
                 Log.w("MiniUNA-Needle", lastError)
                 return false
             }
-            return try {
+            val proc = try {
                 val dir = context.filesDir
-                val proc = ProcessBuilder(
-                    File(dir, BINARY_NAME).absolutePath,
+                ProcessBuilder(
+                    bin,
                     "--model", File(dir, MODEL_NAME).absolutePath,
                     "--tools", File(dir, TOOLS_NAME).absolutePath,
                     "--depth", depth().toString(),
@@ -82,24 +95,30 @@ class NeedleServer(private val context: Context) {
                     .redirectOutput(File(dir, "needle.log"))
                     .redirectErrorStream(true)
                     .start()
-                process = proc
-                if (!waitPortOpen()) {
-                    if (!lastError.startsWith("процесс needle завершился")) {
-                        lastError = "сервер needle не открыл порт $PORT" + logTail()
-                    }
-                    Log.w("MiniUNA-Needle", lastError)
-                    stopLocked()
-                    return false
-                }
-                lastError = "ok"
-                Log.i("MiniUNA-Needle", "needle server ready on port $PORT")
-                true
             } catch (e: Throwable) {
                 lastError = "не стартовал needle: ${e.message}"
                 Log.w("MiniUNA-Needle", lastError)
-                stopLocked()
-                false
+                return false
             }
+            synchronized(lock) {
+                if (myGen != abortGen) {
+                    try {
+                        proc.destroy()
+                    } catch (_: Throwable) {
+                    }
+                    return false
+                }
+                process = proc
+            }
+            if (!waitPortOpen(myGen)) {
+                synchronized(lock) {
+                    if (myGen == abortGen) stopLocked()
+                }
+                return false
+            }
+            lastError = "ok"
+            Log.i("MiniUNA-Needle", "needle server ready on port $PORT")
+            return true
         }
     }
 
@@ -201,19 +220,26 @@ class NeedleServer(private val context: Context) {
         }
     }
 
-    private fun waitPortOpen(): Boolean {
+    private fun waitPortOpen(myGen: Int): Boolean {
         val deadline = System.currentTimeMillis() + START_TIMEOUT_MS
         while (System.currentTimeMillis() < deadline) {
+            if (myGen != abortGen) return false
+            val alive: Boolean
+            var exitedCode: Int? = null
             synchronized(lock) {
                 val p = process
-                if (p != null) {
-                    try {
-                        val code = p.exitValue()
-                        lastError = "процесс needle завершился при старте (код $code)" + logTail()
-                        return false
-                    } catch (_: IllegalThreadStateException) {
-                    }
+                if (p == null) return false
+                try {
+                    exitedCode = p.exitValue()
+                    alive = false
+                } catch (_: IllegalThreadStateException) {
+                    alive = true
                 }
+            }
+            if (!alive) {
+                lastError = "процесс needle завершился при старте (код $exitedCode)" + logTail()
+                Log.w("MiniUNA-Needle", lastError)
+                return false
             }
             if (isPortOpen()) return true
             try {
@@ -222,7 +248,9 @@ class NeedleServer(private val context: Context) {
                 return false
             }
         }
-        return isPortOpen()
+        lastError = "сервер needle не открыл порт $PORT" + logTail()
+        Log.w("MiniUNA-Needle", lastError)
+        return false
     }
 
     fun complete(input: String): String? {

@@ -107,12 +107,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         handleHotwordExtra(intent)
     }
 
-    private val ackPhrases = listOf("Я тут.", "Слушаю.", "Ага?", "Что такое?", "На связи.")
+    private val ackPhrases: List<String>
+        get() = VoiceCache.ACK
 
     private fun handleHotwordExtra(intent: Intent) {
         if (!intent.hasExtra(HotwordService.EXTRA_COMMAND)) return
         val cmd = intent.getStringExtra(HotwordService.EXTRA_COMMAND).orEmpty()
-        if (cmd.isBlank()) respond(ackPhrases.random()) else handle(cmd)
+        if (cmd.isBlank()) {
+            val ack = VoiceCache.ACK
+            respondKey("ack_${ack.indices.random()}", ack.random())
+        } else handle(cmd)
     }
 
     private fun setupNavigation() {
@@ -660,9 +664,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun askSlot() {
         val p = pending ?: return
-        val question = SlotHelper.question(p.missing.firstOrNull() ?: return)
+        val slot = p.missing.firstOrNull() ?: return
+        val question = SlotHelper.question(slot)
         if (prefs.getBoolean("voice", true)) {
-            respond(question, autoListen = true)
+            respondKey("slot_$slot", question, autoListen = true)
         } else {
             showSlotDialog(question)
         }
@@ -730,10 +735,38 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (prefs.getBoolean("voice", true) && ::tts.isInitialized) {
             if (tts.isSpeaking) tts.stop()
             autoListenArmed = autoListen
+            try {
+                tts.setSpeechRate(prefs.getFloat("tts_rate", 1.1f).coerceIn(0.5f, 1.5f))
+            } catch (_: Throwable) {
+            }
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, if (autoListen) "mini_una_q" else "mini_una")
         } else {
             autoListenArmed = false
         }
+    }
+
+    private fun respondKey(key: String, text: String, autoListen: Boolean = false) {
+        if (prefs.getBoolean("voice", true) && ::tts.isInitialized) {
+            val file = VoiceCache.fileFor(this, key, VoiceCache.ratePercent(this))
+            if (file.exists() && file.length() > 0 && VoiceCache.play(this, file)) {
+                output.text = text
+                mascot.blink()
+                autoListenArmed = false
+                if (autoListen) {
+                    // Кэш не умеет колбэк конца: короткий запас, слушаем только
+                    // если вопрос слота всё ещё ждёт ответа.
+                    Thread {
+                        try {
+                            Thread.sleep(2500)
+                        } catch (_: Throwable) {
+                        }
+                        runOnUiThread { if (pending != null) listen() }
+                    }.apply { isDaemon = true; start() }
+                }
+                return
+            }
+        }
+        respond(text, autoListen)
     }
 
     override fun onInit(statusCode: Int) {

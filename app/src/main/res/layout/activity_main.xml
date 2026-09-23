@@ -330,6 +330,21 @@
                         android:layout_height="wrap_content"/>
                 </LinearLayout>
 
+                <TextView style="@style/ControlLabel" android:text="Темп речи, %"/>
+                <TextView
+                    android:id="@+id/rateValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:text="110"/>
+                <SeekBar
+                    android:id="@+id/seekRate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="60"/>
+
                 <TextView style="@style/SectionTitle" android:text="Модель"/>
                 <TextView
                     android:id="@+id/modelStatus"

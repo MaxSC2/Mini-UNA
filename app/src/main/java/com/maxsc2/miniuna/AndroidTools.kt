@@ -525,6 +525,16 @@ class AndroidTools(private val context: Context) {
 
     fun listenOn(): String {
         return try {
+            if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                (context as? android.app.Activity)?.let {
+                    androidx.core.app.ActivityCompat.requestPermissions(
+                        it, arrayOf(android.Manifest.permission.RECORD_AUDIO), 702
+                    )
+                }
+                return "Дай доступ к микрофону в запросе, потом скажи «слушай юну» ещё раз."
+            }
             ContextCompat.startForegroundService(context, Intent(context, HotwordService::class.java))
             "Слушаю. Скажи «Юна» и команду."
         } catch (_: Throwable) {

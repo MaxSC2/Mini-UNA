@@ -73,29 +73,47 @@ class ToolRegistry(
         else -> null
     }
 
-    private fun persona(key: String): String {
-        val hour = try {
-            java.text.SimpleDateFormat("H", Locale.getDefault()).format(Date()).toInt()
-        } catch (_: Throwable) {
-            12
+    private fun persona(key: String): String = personaLine(key, currentHour())
+
+    companion object {
+        fun currentHour(): Int {
+            return try {
+                java.text.SimpleDateFormat("H", Locale.getDefault()).format(Date()).toInt()
+            } catch (_: Throwable) {
+                12
+            }
         }
-        return when (key) {
-            "greeting" -> when (hour) {
-                in 5..11 -> "Доброе утро! Я на связи."
-                in 12..17 -> "Добрый день! Слушаю."
-                in 18..22 -> "Добрый вечер! Чем помочь?"
-                else -> "Привет! Я тут, даже ночью."
+
+        fun personaCacheKey(key: String, hour: Int = currentHour()): String = when (key) {
+            "greeting" -> "persona_greeting_" + when (hour) {
+                in 5..11 -> "morning"
+                in 12..17 -> "day"
+                in 18..22 -> "evening"
+                else -> "night"
             }
-            "who" -> "Я Юна — твой локальный помощник. Живу прямо в телефоне, интернет мне не нужен."
-            "howareyou" -> if (hour % 2 == 0) {
-                "Отлично, все системы в норме. А у тебя как?"
-            } else {
-                "Хорошо! Готова помогать. Что делаем?"
+            "howareyou" -> "persona_how_" + (if (hour % 2 == 0) "even" else "odd")
+            else -> "persona_$key"
+        }
+
+        fun personaLine(key: String, hour: Int = currentHour()): String {
+            return when (key) {
+                "greeting" -> when (hour) {
+                    in 5..11 -> "Доброе утро! Я на связи."
+                    in 12..17 -> "Добрый день! Слушаю."
+                    in 18..22 -> "Добрый вечер! Чем помочь?"
+                    else -> "Привет! Я тут, даже ночью."
+                }
+                "who" -> "Я Юна — твой локальный помощник. Живу прямо в телефоне, интернет мне не нужен."
+                "howareyou" -> if (hour % 2 == 0) {
+                    "Отлично, все системы в норме. А у тебя как?"
+                } else {
+                    "Хорошо! Готова помогать. Что делаем?"
+                }
+                "thanks" -> "Всегда пожалуйста!"
+                "bye" -> "До связи!"
+                "night" -> "Спокойной ночи!"
+                else -> "Привет!"
             }
-            "thanks" -> "Всегда пожалуйста!"
-            "bye" -> "До связи!"
-            "night" -> "Спокойной ночи!"
-            else -> "Привет!"
         }
     }
 }
