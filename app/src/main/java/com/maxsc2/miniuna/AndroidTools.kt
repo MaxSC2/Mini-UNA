@@ -334,7 +334,7 @@ class AndroidTools(private val context: Context) {
                 } catch (_: Throwable) {
                 }
             }.apply { isDaemon = true; start() }
-            "Включаю музыку в " + resolved.label + "."
+            "Открываю «" + resolved.label + "»."
         } catch (_: Throwable) {
             "Не получилось открыть «" + resolved.label + "»."
         }

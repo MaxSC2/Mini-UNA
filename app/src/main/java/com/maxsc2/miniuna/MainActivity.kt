@@ -39,6 +39,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val micPermission = 701
     private val prefs by lazy { getSharedPreferences("mini_una", MODE_PRIVATE) }
     private var pending: PendingSlot? = null
+    private var pendingConfirm: IntentResult? = null
+    private var confirmRetries = 0
     private var autoListenArmed = false
 
     // Разбор команды может уйти в Cactus nativeComplete (секунды) и в обход дерева
@@ -619,7 +621,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun showConfirmation(result: IntentResult) {
         val actionText = result.intent.replace('_', ' ').lowercase(Locale.getDefault())
-
+        pending = null
+        if (prefs.getBoolean("voice", true)) {
+            pendingConfirm = result
+            confirmRetries = 0
+            respond(
+                "Не уверена. Действие: $actionText. Выполнить? Скажи да или нет.",
+                autoListen = true
+            )
+            return
+        }
         AlertDialog.Builder(this)
             .setTitle("Нужно подтверждение")
             .setMessage(
@@ -662,6 +673,43 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (note == null) "Пока пусто." else "Последняя заметка:\n\n" + note
     }
 
+    private fun confirmAnswer(answer: String, result: IntentResult) {
+        val t = answer.trim().lowercase(Locale.getDefault())
+        val yes = listOf("да", "ага", "угу", "давай", "конечно", "выполняй", "выполни", "ладно", "хорошо", "пусть")
+            .any { t == it || t.startsWith("$it ") || t.startsWith("$it,") }
+        val no = listOf("нет", "не надо", "отмена", "отмени", "стоп", "хватит", "не нужно", "неа")
+            .any { t == it || t.startsWith("$it ") || t.startsWith("$it,") }
+        when {
+            yes -> {
+                pendingConfirm = null
+                confirmRetries = 0
+                try {
+                    val response = toolRegistry.execute(result)
+                    if (response == null) respond("Инструмент не подключён.")
+                    else respond(response)
+                } catch (_: Throwable) {
+                    respond("Android не смог выполнить эту команду.")
+                }
+                updateModelStatus()
+            }
+            no -> {
+                pendingConfirm = null
+                confirmRetries = 0
+                respond("Ладно, не выполняю.")
+                updateModelStatus()
+            }
+            confirmRetries >= 1 -> {
+                pendingConfirm = null
+                confirmRetries = 0
+                handle(answer)
+            }
+            else -> {
+                confirmRetries++
+                respond("Не поняла. Скажи «да» или «нет».", autoListen = true)
+            }
+        }
+    }
+
     private fun askSlot() {
         val p = pending ?: return
         val slot = p.missing.firstOrNull() ?: return
@@ -691,7 +739,47 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             .show()
     }
 
+    private fun confirmAnswer(answer: String, result: IntentResult) {
+        val t = answer.trim().lowercase(Locale.getDefault())
+        val yes = listOf("да", "ага", "угу", "давай", "конечно", "выполняй", "выполни", "ладно", "хорошо", "пусть")
+        val no = listOf("нет", "не надо", "отмена", "отмени", "стоп", "хватит", "не нужно", "неа")
+        if (yes.any { t == it || t.startsWith("$it ") }) {
+            pendingConfirm = null
+            confirmRetries = 0
+            try {
+                val response = toolRegistry.execute(result)
+                    ?: "Инструмент для «" + result.intent + "» не подключён."
+                respond(response)
+            } catch (_: Throwable) {
+                respond("Android не смог выполнить эту команду.")
+            }
+            updateModelStatus()
+            return
+        }
+        if (no.any { t == it || t.startsWith("$it ") }) {
+            pendingConfirm = null
+            confirmRetries = 0
+            respond("Ладно, не выполняю.")
+            updateModelStatus()
+            return
+        }
+        confirmRetries++
+        if (confirmRetries >= 1) {
+            pendingConfirm = null
+            confirmRetries = 0
+            pending = null
+            handle(answer)
+        } else {
+            respond("Не поняла. Скажи «да» или «нет».", autoListen = true)
+        }
+        updateModelStatus()
+    }
+
     private fun onSlotAnswer(answer: String) {
+        pendingConfirm?.let {
+            confirmAnswer(answer, it)
+            return
+        }
         val p = pending
         if (p == null) {
             handle(answer)

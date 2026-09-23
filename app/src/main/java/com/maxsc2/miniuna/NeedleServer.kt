@@ -257,9 +257,38 @@ class NeedleServer(private val context: Context) {
                     return null
                 }
             }
-            post("http://127.0.0.1:$PORT/complete", input)?.let { return it }
-            return post("http://[::1]:$PORT/complete", input)
+            val answer = post("http://127.0.0.1:$PORT/complete", input)
+                ?: post("http://[::1]:$PORT/complete", input)
+            // Сервер помнит контекст между запросами (stateless-архитектуре
+            // приложения это мешает: следующий вызов галлюцинирует из истории).
+            // Сбрасываем сессию в фоне, ответу не мешаем.
+            if (answer != null) resetAsync()
+            return answer
         }
+    }
+
+    private fun resetAsync() {
+        Thread {
+            for (url in listOf("http://127.0.0.1:$PORT/reset", "http://[::1]:$PORT/reset")) {
+                var conn: HttpURLConnection? = null
+                try {
+                    conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        doOutput = true
+                        connectTimeout = 3000
+                        readTimeout = 5000
+                    }
+                    conn.outputStream.use { }
+                    if (conn.responseCode == 200) break
+                } catch (_: Throwable) {
+                } finally {
+                    try {
+                        conn?.disconnect()
+                    } catch (_: Throwable) {
+                    }
+                }
+            }
+        }.apply { isDaemon = true; start() }
     }
 
     private fun post(url: String, input: String): String? {
