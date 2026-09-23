@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         val emotions = listOf(
             "neutral" to "Спокойствие", "happy" to "Радость", "surprised" to "Удивление",
-            "smirk" to "Ухмылка", "grin" to "Оскал", "shy" to "Смущение",
+            "shy" to "Смущение",
             "sad" to "Грусть", "angry" to "Злость", "sleepy" to "Сон"
         )
         val emotionBox = findViewById<LinearLayout>(R.id.emotionButtons)
@@ -268,7 +268,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         light.isChecked = prefs.getBoolean("light", true)
         gloss.isChecked = prefs.getBoolean("gloss", true)
 
-        look.progress = prefs.getInt("look", 55)
+        look.progress = prefs.getInt("look", 60)
         eyes.progress = prefs.getInt("eyes", 50)
         roll.progress = prefs.getInt("roll", 50)
 
@@ -287,7 +287,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         look.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
             prefs.edit().putInt("look", value).apply()
-            eachMascot { it.setLookTravel(0.08f + value / 100f * 0.26f) }
+            eachMascot { it.setLookTravel(0.08f + value / 100f * 0.32f) }
         })
         eyes.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
             prefs.edit().putInt("eyes", value).apply()
@@ -496,6 +496,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun handle(raw: String) {
         status.text = "MINI-UNA  •  думаю…"
+        eachMascot { it.setThinking(true) }
         background.execute {
             val engine = intentEngine as? NeedleEngine
             val results = try {
@@ -566,6 +567,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun showMultiConfirmation(allowed: List<IntentResult>, rest: List<IntentResult>) {
+        eachMascot { it.setThinking(false) }
         val names = (allowed + rest).joinToString(", ") {
             it.intent.replace('_', ' ').lowercase(Locale.getDefault())
         }
@@ -621,6 +623,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun showConfirmation(result: IntentResult) {
+        eachMascot { it.setThinking(false) }
         val actionText = result.intent.replace('_', ' ').lowercase(Locale.getDefault())
         pending = null
         if (prefs.getBoolean("voice", true)) {
@@ -793,6 +796,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun respond(text: String, autoListen: Boolean = false) {
         output.text = text
         mascot.blink()
+        eachMascot { it.setThinking(false) }
         if (prefs.getBoolean("voice", true) && ::tts.isInitialized) {
             if (tts.isSpeaking) tts.stop()
             autoListenArmed = autoListen
