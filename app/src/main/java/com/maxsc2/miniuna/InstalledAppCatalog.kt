@@ -55,7 +55,8 @@ class InstalledAppCatalog(private val context: Context) {
             "яндекс" to listOf("яндекс"),
             "яндекс музыка" to listOf("яндекс музыка"),
             "музыка" to listOf("spotify", "yandex music", "youtube music", "музыка", "плеер"),
-            "музыку" to listOf("spotify", "yandex music", "youtube music", "музыка", "плеер")
+            "музыку" to listOf("spotify", "yandex music", "youtube music", "музыка", "плеер"),
+            "музон" to listOf("spotify", "yandex music", "youtube music", "музыка", "плеер")
         )
 
         val wanted = aliases[query].orEmpty().map(::normalize)

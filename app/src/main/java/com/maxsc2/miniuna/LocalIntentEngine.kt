@@ -91,7 +91,9 @@ class LocalIntentEngine : IntentEngine {
             (t.startsWith("отправь ") || t.startsWith("напиши ")) && (t.contains("телеграм") || t.contains("телегу")) ->
                 IntentResult("TG_SHARE", 0.9f, mapOf("text" to raw))
             t.contains("включи музыку") || t.contains("поставь музыку") ||
-                t == "музыка" || t == "музыку" ->
+                t.contains("подруби музыку") || t.contains("подруби музон") ||
+                t.contains("вруби музыку") || t.contains("вруби музон") ||
+                t == "музыка" || t == "музыку" || t == "музон" ->
                 IntentResult("PLAY_MUSIC", 0.95f)
             t.contains("следующий трек") || t.contains("следующая песня") ->
                 IntentResult("MEDIA_NEXT", 0.95f)

@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         refreshNote()
         applySavedMascotState()
         setupMascotControls()
+        setupNeedleControls()
         refreshAppCatalogStatus()
         updateModelStatus()
         (intentEngine as? NeedleEngine)?.warmupAsync {
@@ -281,6 +282,56 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             prefs.edit().putInt("roll", value).apply()
             eachMascot { it.setRoll(value / 100f * 20f) }
         })
+    }
+
+    private fun setupNeedleControls() {
+        val depth = findViewById<SeekBar>(R.id.seekDepth)
+        val depthValue = findViewById<TextView>(R.id.depthValue)
+        val screen = findViewById<SeekBar>(R.id.seekScreen)
+        val screenValue = findViewById<TextView>(R.id.screenValue)
+        val conf = findViewById<SeekBar>(R.id.seekConf)
+        val confValue = findViewById<TextView>(R.id.confValue)
+
+        depth.progress = (prefs.getInt("needle_depth", 12) - 2).coerceIn(0, 18)
+        depthValue.text = prefs.getInt("needle_depth", 12).toString()
+        screen.progress = prefs.getInt("needle_screen", 500).coerceIn(0, 1500)
+        screenValue.text = prefs.getInt("needle_screen", 500).toString()
+        conf.progress = (prefs.getInt("needle_conf", 70) - 50).coerceIn(0, 40)
+        confValue.text = prefs.getInt("needle_conf", 70).toString()
+
+        depth.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) depthValue.text = (progress + 2).toString()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                val d = (depth.progress + 2).coerceIn(2, 20)
+                prefs.edit().putInt("needle_depth", d).apply()
+                depthValue.text = d.toString()
+                restartNeedle()
+            }
+        })
+        screen.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
+            prefs.edit().putInt("needle_screen", value.coerceIn(0, 1500)).apply()
+            screenValue.text = value.toString()
+        })
+        conf.setOnSeekBarChangeListener(simpleSeekBarListener { value ->
+            val c = (value + 50).coerceIn(50, 90)
+            prefs.edit().putInt("needle_conf", c).apply()
+            confValue.text = c.toString()
+        })
+
+        findViewById<Button>(R.id.restartNeedle).setOnClickListener {
+            restartNeedle()
+        }
+    }
+
+    private fun restartNeedle() {
+        status.text = "MINI-UNA  •  перезапуск Needle"
+        Thread {
+            (intentEngine as? NeedleEngine)?.restartServer()
+            runOnUiThread { updateModelStatus() }
+        }.apply { isDaemon = true; start() }
     }
 
     private fun simpleSeekBarListener(onProgress: (Int) -> Unit) =

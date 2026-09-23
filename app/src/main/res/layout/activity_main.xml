@@ -335,6 +335,57 @@
                     android:id="@+id/modelStatus"
                     style="@style/PanelText"
                     android:text="Needle 3: состояние runtime определится после первого запуска."/>
+
+                <TextView style="@style/ControlLabel" android:text="Глубина модели (2–20: меньше — быстрее)"/>
+                <TextView
+                    android:id="@+id/depthValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:text="12"/>
+                <SeekBar
+                    android:id="@+id/seekDepth"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="18"
+                    android:progress="10"/>
+
+                <TextView style="@style/ControlLabel" android:text="Контекст экрана, символов (0 — выкл)"/>
+                <TextView
+                    android:id="@+id/screenValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:text="500"/>
+                <SeekBar
+                    android:id="@+id/seekScreen"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="1500"
+                    android:progress="500"/>
+
+                <TextView style="@style/ControlLabel" android:text="Порог уверенности, %"/>
+                <TextView
+                    android:id="@+id/confValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:text="70"/>
+                <SeekBar
+                    android:id="@+id/seekConf"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="40"
+                    android:progress="20"/>
+
+                <Button
+                    android:id="@+id/restartNeedle"
+                    style="@style/PillButton"
+                    android:text="Перезапустить Needle"
+                    android:layout_marginBottom="12dp"/>
             </LinearLayout>
         </ScrollView>
     </FrameLayout>

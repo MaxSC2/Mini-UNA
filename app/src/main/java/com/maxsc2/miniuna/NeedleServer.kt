@@ -20,6 +20,23 @@ class NeedleServer(private val context: Context) {
         private const val MODEL_NAME = "needle3.cact"
         private const val TOOLS_NAME = "needle_tools.json"
         private const val START_TIMEOUT_MS = 90_000L
+        // Лестница модели 2..20: меньше глубина — заметно быстрее инференс.
+        // Значение — в настройках (needle_depth), применяется при (ре)старте.
+        private const val DEFAULT_DEPTH = 12
+    }
+
+    private fun depth(): Int {
+        return try {
+            context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
+                .getInt("needle_depth", DEFAULT_DEPTH).coerceIn(2, 20)
+        } catch (_: Throwable) {
+            DEFAULT_DEPTH
+        }
+    }
+
+    fun restart(): Boolean {
+        synchronized(lock) { stopLocked() }
+        return ensureStarted()
     }
 
     @Volatile var lastError: String = "not started"
@@ -55,9 +72,10 @@ class NeedleServer(private val context: Context) {
             return try {
                 val dir = context.filesDir
                 val proc = ProcessBuilder(
-                    bin,
+                    File(dir, BINARY_NAME).absolutePath,
                     "--model", File(dir, MODEL_NAME).absolutePath,
                     "--tools", File(dir, TOOLS_NAME).absolutePath,
+                    "--depth", depth().toString(),
                     "--serve", "--port", PORT.toString()
                 )
                     .directory(dir)

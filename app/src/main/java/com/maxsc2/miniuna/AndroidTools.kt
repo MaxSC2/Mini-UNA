@@ -46,6 +46,7 @@ class AndroidTools(private val context: Context) {
         "халык" to listOf("halyk"),
         "музыка" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
         "музыку" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
+        "музон" to listOf("spotify", "yandexmusic", "youtubemusic", "music", "плеер", "player"),
         "яндексмузыка" to listOf("yandexmusic", "яндексмузыка"),
         "ютубмузыка" to listOf("youtubemusic"),
         "неонвейв" to listOf("neonwave", "audioplayer"),

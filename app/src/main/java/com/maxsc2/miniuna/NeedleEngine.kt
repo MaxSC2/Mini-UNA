@@ -12,6 +12,9 @@ class NeedleEngine(
 
     companion object {
         private const val CONFIDENCE_THRESHOLD = 0.70f
+        // Ниже пола — не подтверждение, а «не понял»: рандомные вызовы с
+        // мизерной уверенностью отбрасываются вместо диалога.
+        private const val CONFIDENCE_FLOOR = 0.25f
         private val ARG_REQUIRED = setOf(
             "OPEN_APP", "OPEN_SETTINGS", "OPEN_WEB",
             "CALCULATE", "SAVE_NOTE",
@@ -76,7 +79,14 @@ class NeedleEngine(
 
     private fun screenPrompt(): String {
         return try {
-            val screen = androidTools.screenContext(800)
+            val maxChars = try {
+                context.getSharedPreferences("mini_una", Context.MODE_PRIVATE)
+                    .getInt("needle_screen", 500).coerceIn(0, 1500)
+            } catch (_: Throwable) {
+                500
+            }
+            if (maxChars <= 0) return ""
+            val screen = androidTools.screenContext(maxChars)
             if (screen.isBlank()) "" else " Current screen text (may help resolve references like 'it', 'there'): " + screen
         } catch (_: Throwable) {
             ""
@@ -240,8 +250,14 @@ class NeedleEngine(
             t.contains("включи музыку") ||
             t.contains("включи музычку") ||
             t.contains("поставь музыку") ||
+            t.contains("подруби музыку") ||
+            t.contains("подруби музон") ||
+            t.contains("вруби музыку") ||
+            t.contains("вруби музон") ||
+            t.contains("давай музыку") ||
             t == "музыка" ||
-            t == "музыку"
+            t == "музыку" ||
+            t == "музон"
         ) {
             return IntentResult("PLAY_MUSIC", 0.995f, reasoning = "deterministic music fast path")
         }
@@ -560,12 +576,18 @@ class NeedleEngine(
         val suppressed = root.optJSONArray("suppressed_calls")
 
         if (calls != null && calls.length() > 0) {
+            // Мусор с мизерной уверенностью — сразу «не понял», без диалога.
+            if (confidence < CONFIDENCE_FLOOR) return emptyList()
+            val gate = confThreshold()
             val out = mutableListOf<IntentResult>()
+            val seen = HashSet<String>()
             for (i in 0 until minOf(calls.length(), 4)) {
                 val result = parseCall(calls.getJSONObject(i), confidence, reasoning)
                 if (result.intent == "UNKNOWN") continue
                 if (result.arguments.isEmpty() && result.intent in ARG_REQUIRED) continue
-                out.add(result.copy(requiresConfirmation = confidence < CONFIDENCE_THRESHOLD))
+                val key = result.intent + "|" + result.arguments.toSortedMap().toString()
+                if (!seen.add(key)) continue
+                out.add(result.copy(requiresConfirmation = confidence < gate))
             }
             if (out.isNotEmpty()) return out
             return listOf(fallback.classify(originalText))
@@ -683,6 +705,11 @@ class NeedleEngine(
                 false
             }
         }
+    }
+
+    fun restartServer(): Boolean {
+        nativeReady = false
+        return ensureServer()
     }
 
     fun close() {
