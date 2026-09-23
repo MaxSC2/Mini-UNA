@@ -446,6 +446,16 @@ class NeedleEngine(
                     reasoning = "installed-app catalog fast path"
                 )
             }
+            // Имя не распозналось: всё равно идём в OPEN_APP, чтобы ответ
+            // был конкретным («не нашла, может …?»), а не общим BLOCK.
+            if (app.isNotEmpty()) {
+                return IntentResult(
+                    intent = "OPEN_APP",
+                    confidence = 0.6f,
+                    arguments = mapOf("app" to app),
+                    reasoning = "unresolved app name, let ToolRegistry explain"
+                )
+            }
         }
 
         // Volume percent beats plain up/down: "громче на 20" is a target, not a step.

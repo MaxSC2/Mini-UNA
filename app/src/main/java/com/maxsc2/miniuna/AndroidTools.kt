@@ -99,7 +99,15 @@ class AndroidTools(private val context: Context) {
 
     fun openApp(name: String): String {
         val app = resolveInstalledApp(name)
-            ?: return "Не нашла установленное приложение «" + name + "»."
+        if (app == null) {
+            val hints = suggestApps(name)
+            val clean = name.trim()
+            return if (hints.isEmpty()) {
+                "Не нашла приложение «" + clean + "» среди установленных. Назови точнее — как оно подписано."
+            } else {
+                "Не нашла «" + clean + "». Может: " + hints.joinToString(", ") { it.label } + "?"
+            }
+        }
 
         val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
         if (launch != null) {
@@ -139,6 +147,26 @@ class AndroidTools(private val context: Context) {
         }?.let { return it }
 
         return null
+    }
+
+    private fun suggestApps(name: String, max: Int = 3): List<InstalledApp> {
+        val q = normalize(name)
+        if (q.length < 3) return emptyList()
+        return installedApps()
+            .map { app -> app to scoreName(normalize(app.label), q) }
+            .filter { it.second > 0 }
+            .sortedByDescending { it.second }
+            .take(max)
+            .map { it.first }
+    }
+
+    private fun scoreName(label: String, query: String): Int {
+        if (label.isEmpty()) return 0
+        var prefix = 0
+        while (prefix < label.length && prefix < query.length && label[prefix] == query[prefix]) prefix++
+        var score = if (prefix >= 3) prefix * 2 else 0
+        if (label.contains(query) || query.contains(label)) score += 4
+        return score
     }
 
     private fun normalize(value: String): String {

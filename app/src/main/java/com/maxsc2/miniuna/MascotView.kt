@@ -41,8 +41,12 @@ class MascotView @JvmOverloads constructor(
     @Volatile private var autoSleep = false
     @Volatile private var lastActive = System.currentTimeMillis()
     private var lastWanderAt = 0L
-    private var wanderX = 0f
-    private var wanderY = 0f
+    // Блуждание путями: цепочка точек (проход туда-обратно), а не прыжки.
+    private var wanderPath = emptyList<Pair<Float, Float>>()
+    private var wanderLeg = 0
+    private var wanderLegT0 = 0L
+    private var legFromX = 0f
+    private var legFromY = 0f
 
     private var blinkStarted = 0L
     private var blinkUntil = 0L
@@ -236,15 +240,32 @@ class MascotView @JvmOverloads constructor(
         val idleY = cos(time * 0.43f) * 0.025f
 
         // Idle life: wander, peer around, fall asleep when left alone.
+        // Спящий не блуждает и не крутит головой: взгляд гаснет в центр.
         val idleFor = now - lastActive
         if (!autoSleep && idleFor > 45_000L) {
             autoSleep = true
         }
-        val useWander = thinking || idleFor > 8000L
-        if (useWander && now - lastWanderAt > (if (thinking) 700L else 3500L)) {
+        val sleeping = autoSleep
+        val useWander = !sleeping && (thinking || idleFor > 8000L)
+        if (useWander && (now - lastWanderAt > (if (thinking) 700L else 3500L) || wanderPath.isEmpty())) {
             lastWanderAt = now
-            wanderX = (Math.random() * 2 - 1).toFloat() * 0.9f
-            wanderY = (Math.random() * 2 - 1).toFloat() * 0.7f
+            wanderPath = if (!thinking && Math.random() < 0.5) {
+                // Проход: к случайному краю и обратно через другую точку.
+                val ax = (Math.random() * 2 - 1).toFloat()
+                val ay = (Math.random() * 2 - 1).toFloat() * 0.7f
+                val bx = -ax * 0.6f + (Math.random() * 2 - 1).toFloat() * 0.3f
+                val by = -ay * 0.6f + (Math.random() * 2 - 1).toFloat() * 0.3f
+                listOf(ax to ay, bx to by, gazeX to gazeY)
+            } else {
+                listOf(
+                    (Math.random() * 2 - 1).toFloat() * 0.9f to
+                        (Math.random() * 2 - 1).toFloat() * 0.7f
+                )
+            }
+            wanderLeg = 0
+            wanderLegT0 = now
+            legFromX = gazeX
+            legFromY = gazeY
         }
 
         val emoKey = if (autoSleep) "sleepy" else emotion
@@ -286,14 +307,56 @@ class MascotView @JvmOverloads constructor(
         canvas.scale(breathingScale, breathingScale, cx, cy)
         canvas.drawCircle(cx, cy, radius, spherePaint)
 
-        val desiredX = if (useWander) wanderX else if (tracking) targetX else 0f
-        val desiredY = if (useWander) wanderY else if (tracking) targetY else 0f
-        val gk = (0.20f * smooth).coerceIn(0f, 1f)
-        gazeX += (desiredX - gazeX) * gk
-        gazeY += (desiredY - gazeY) * gk
+        // Спящий: взгляд гаснет в центр, голова не крутится.
+        // Бодрствующий: идёт по пути блуждания либо за касанием.
+        var desiredX: Float
+        var desiredY: Float
+        var pathActive = false
+        if (sleeping) {
+            desiredX = 0f
+            desiredY = 0f
+        } else if (useWander && wanderPath.isNotEmpty()) {
+            var target = wanderPath[wanderLeg.coerceIn(wanderPath.indices)]
+            var p = ((now - wanderLegT0).toFloat() / 1300f).coerceIn(0f, 1f)
+            if (p >= 1f && wanderLeg < wanderPath.lastIndex) {
+                wanderLeg++
+                legFromX = target.first
+                legFromY = target.second
+                wanderLegT0 = now
+                target = wanderPath[wanderLeg]
+                p = 0f
+            }
+            if (p >= 1f) {
+                wanderPath = emptyList()
+                desiredX = target.first
+                desiredY = target.second
+            } else {
+                val e = p * p * (3f - 2f * p)
+                desiredX = legFromX + (target.first - legFromX) * e
+                desiredY = legFromY + (target.second - legFromY) * e
+                pathActive = true
+            }
+        } else if (useWander) {
+            desiredX = 0f
+            desiredY = 0f
+        } else if (tracking) {
+            desiredX = targetX
+            desiredY = targetY
+        } else {
+            desiredX = 0f
+            desiredY = 0f
+        }
+        if (pathActive) {
+            gazeX = desiredX
+            gazeY = desiredY
+        } else {
+            val gk = (0.20f * smooth).coerceIn(0f, 1f)
+            gazeX += (desiredX - gazeX) * gk
+            gazeY += (desiredY - gazeY) * gk
+        }
 
-        val liveX = gazeX + idleX * (1f - abs(gazeX))
-        val liveY = gazeY + idleY * (1f - abs(gazeY))
+        val liveX = gazeX + (if (sleeping) 0f else idleX * (1f - abs(gazeX)))
+        val liveY = gazeY + (if (sleeping) 0f else idleY * (1f - abs(gazeY)))
 
         if (gloss) {
             // Reference behavior: the gloss travels opposite the gaze,
@@ -367,9 +430,18 @@ class MascotView @JvmOverloads constructor(
         }
 
         if (emo.sleepy) {
-            zzzPaint.textSize = radius * 0.20f
-            zzzPaint.alpha = (140f + 90f * sin(time * 2.8f)).toInt().coerceIn(0, 255)
-            canvas.drawText("z z", cx + radius * 0.55f, cy - radius * 0.75f, zzzPaint)
+            // Три Z: каждая больше предыдущей, пульсируют по очереди снизу вверх.
+            val zs = listOf(
+                Triple(0.44f, -0.52f, 0.13f),
+                Triple(0.58f, -0.68f, 0.19f),
+                Triple(0.74f, -0.86f, 0.26f)
+            )
+            zs.forEachIndexed { i, (dx, dy, s) ->
+                zzzPaint.textSize = radius * s
+                val phase = time * 2.2f - i * 0.9f
+                zzzPaint.alpha = (90f + 120f * (0.5f + 0.5f * sin(phase))).toInt().coerceIn(0, 255)
+                canvas.drawText("z", cx + radius * dx, cy + radius * dy, zzzPaint)
+            }
         }
 
         canvas.restore()
