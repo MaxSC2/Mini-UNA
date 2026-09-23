@@ -686,13 +686,6 @@ class NeedleEngine(
         return listOf(IntentResult("UNKNOWN", confidence, reasoning = reasoning))
     }
 
-    // Legacy single-result entry, kept for direct callers.
-    private fun parseNeedleResult(json: String, originalText: String): IntentResult? =
-        parseNeedleResults(json, originalText).firstOrNull {
-            it.intent != "UNKNOWN"
-        } ?: fallback.classify(originalText)
-
-
     private fun parseCall(
         call: JSONObject,
         confidence: Float,

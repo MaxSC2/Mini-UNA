@@ -63,6 +63,12 @@ jobs:
           cp app/src/main/assets/needle app/src/main/jniLibs/arm64-v8a/libneedle.so
           ls -la app/src/main/jniLibs/arm64-v8a/
 
+      - name: Strip native libraries
+        run: |
+          sudo apt-get install -y llvm
+          llvm-strip --strip-debug app/src/main/jniLibs/arm64-v8a/*.so
+          ls -la app/src/main/jniLibs/arm64-v8a/
+
       - name: Set up signing keystore
         run: |
           echo "$MINIUNA_KEYSTORE_B64" | base64 -d > /tmp/mini-una-release.p12
