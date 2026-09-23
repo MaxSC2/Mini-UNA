@@ -445,6 +445,36 @@ class AndroidTools(private val context: Context) {
         else "На экране:\n" + text
     }
 
+    fun screenTap(raw: String): String {
+        val service = AccessibilityBridgeService.instance
+            ?: return "Для нажатий включи службу Mini-UNA в настройках специальных возможностей."
+        var q = raw.trim()
+        for (w in listOf("нажми на ", "нажми ", "тапни ", "кликни ", "нажми по ", "пожалуйста")) {
+            if (q.lowercase(Locale.getDefault()).startsWith(w)) {
+                q = q.substring(w.length).trim()
+                break
+            }
+        }
+        q = q.replace(Regex("\\s+"), " ").trim()
+        if (q.isBlank()) return "Что нажать?"
+        return service.tapText(q)
+    }
+
+    fun replyNotification(app: String, text: String): String {
+        if (NotifListenerService.instance == null) {
+            return "Доступ к уведомлениям выключен. Открой доступ в настройках уведомлений."
+        }
+        if (text.isBlank()) return "Что ответить?"
+        val pkg = if (app.isBlank()) {
+            null
+        } else {
+            resolveInstalledApp(app)?.packageName
+                ?: return "Не нашла приложение «" + app + "»."
+        }
+        val ok = NotifListenerService.replyTo(pkg, text)
+        return if (ok) "Ответила." else "Не нашла сообщение с кнопкой ответа."
+    }
+
     fun recentNotifications(): String {
         if (NotifListenerService.instance == null) {
             return "Доступ к уведомлениям выключен. Открой доступ в настройках уведомлений."
@@ -571,6 +601,138 @@ class AndroidTools(private val context: Context) {
             "Напомню через " + formatDuration(secs) + ": «" + text.ifBlank { "без текста" } + "»."
         } catch (_: Throwable) {
             "Не получилось поставить напоминание."
+        }
+    }
+
+    fun calendarDay(offsetDays: Int): String {
+        if (context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            (context as? android.app.Activity)?.let {
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    it, arrayOf(android.Manifest.permission.READ_CALENDAR), 703
+                )
+            }
+            return "Дай доступ к календарю в запросе, потом спроси ещё раз."
+        }
+        return try {
+            val cal = java.util.Calendar.getInstance()
+            cal.add(java.util.Calendar.DAY_OF_YEAR, offsetDays)
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0)
+            val start = cal.timeInMillis
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+            cal.set(java.util.Calendar.MINUTE, 59)
+            val end = cal.timeInMillis
+            val events = queryDay(start, end)
+            if (events.isEmpty()) {
+                return if (offsetDays == 0) "На сегодня ничего нет." else "На этот день ничего нет."
+            }
+            val head = if (offsetDays == 0) "Сегодня: " else "В этот день: "
+            head + events.joinToString("; ")
+        } catch (_: Throwable) {
+            "Не получилось прочитать календарь."
+        }
+    }
+
+    fun calendarNext(): String {
+        if (context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            (context as? android.app.Activity)?.let {
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    it, arrayOf(android.Manifest.permission.READ_CALENDAR), 703
+                )
+            }
+            return "Дай доступ к календарю в запросе, потом спроси ещё раз."
+        }
+        return try {
+            val now = System.currentTimeMillis()
+            val end = now + 7L * 24 * 60 * 60 * 1000
+            val events = queryDay(now, end).take(3)
+            if (events.isEmpty()) "Ближайшую неделю пусто." else "Ближайшее: " + events.joinToString("; ")
+        } catch (_: Throwable) {
+            "Не получилось прочитать календарь."
+        }
+    }
+
+    private fun queryDay(start: Long, end: Long): List<String> {
+        val uri = android.provider.CalendarContract.Instances.CONTENT_URI.buildUpon().let {
+            android.content.ContentUris.appendId(it, start)
+            android.content.ContentUris.appendId(it, end)
+            it.build()
+        }
+        val out = mutableListOf<Pair<Long, String>>()
+        context.contentResolver.query(
+            uri,
+            arrayOf(
+                android.provider.CalendarContract.Instances.TITLE,
+                android.provider.CalendarContract.Instances.BEGIN,
+                android.provider.CalendarContract.Instances.EVENT_LOCATION
+            ),
+            null, null,
+            android.provider.CalendarContract.Instances.BEGIN + " ASC"
+        )?.use { c ->
+            val ti = c.getColumnIndex(android.provider.CalendarContract.Instances.TITLE)
+            val bi = c.getColumnIndex(android.provider.CalendarContract.Instances.BEGIN)
+            val li = c.getColumnIndex(android.provider.CalendarContract.Instances.EVENT_LOCATION)
+            while (c.moveToNext()) {
+                val title = if (ti >= 0) c.getString(ti).orEmpty() else ""
+                val begin = if (bi >= 0) c.getLong(bi) else 0L
+                val loc = if (li >= 0) c.getString(li).orEmpty() else ""
+                if (title.isBlank()) continue
+                val fmt = java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale("ru"))
+                var line = fmt.format(java.util.Date(begin)) + " " + title.trim()
+                if (loc.isNotBlank()) line += " (" + loc.trim() + ")"
+                out.add(begin to line)
+            }
+        }
+        return out.sortedBy { it.first }.map { it.second }
+    }
+
+    fun noteAdd(text: String): String {
+        if (text.isBlank()) return "Что записать?"
+        NotesStore(context).addNote(text)
+        return "Записала."
+    }
+
+    fun noteList(): String {
+        val notes = NotesStore(context).listNotes(8)
+        if (notes.isEmpty()) return "Заметок пока нет."
+        return "Заметки:\n" + notes.mapIndexed { i, n -> (i + 1).toString() + ". " + n.text }.joinToString("\n")
+    }
+
+    fun noteClear(): String {
+        NotesStore(context).clearNotes()
+        return "Все заметки удалены."
+    }
+
+    fun shopAdd(list: String, item: String): String {
+        if (item.isBlank()) return "Что добавить?"
+        val store = NotesStore(context)
+        return if (store.addShop(list, item)) {
+            "Добавила «" + item.trim() + "» в список «" + store.canonList(list) + "»."
+        } else {
+            "Не получилось добавить."
+        }
+    }
+
+    fun shopList(list: String): String {
+        val store = NotesStore(context)
+        val items = store.listShop(list.ifBlank { "покупки" })
+        if (items.isEmpty()) return "Список «" + store.canonList(list.ifBlank { "покупки" }) + "» пуст."
+        return "Список «" + store.canonList(list.ifBlank { "покупки" }) + "»:\n" +
+            items.mapIndexed { i, s -> (i + 1).toString() + ". " + s }.joinToString("\n")
+    }
+
+    fun shopRemove(list: String, item: String): String {
+        if (item.isBlank()) return "Что убрать?"
+        val store = NotesStore(context)
+        return if (store.removeShop(list, item)) {
+            "Убрала «" + item.trim() + "»."
+        } else {
+            "Не нашла «" + item.trim() + "» в списке."
         }
     }
 

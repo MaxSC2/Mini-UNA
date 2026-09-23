@@ -174,9 +174,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         findViewById<Button>(R.id.clearNote).setOnClickListener {
+            NotesStore(this).clearNotes()
             prefs.edit().remove("last_note").apply()
             refreshNote()
-            respond("Заметка очищена.")
+            respond("Заметки очищены.")
         }
     }
 
@@ -656,7 +657,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val engine = intentEngine as? NeedleEngine
         val native = engine?.isNativeReady() == true
         val modelText = if (native) {
-            "Needle 3: native Cactus runtime активен. Confidence gate: 0.70. Fast paths: активны."
+            val ms = engine?.serverLastMs() ?: 0L
+            val timing = if (ms > 0) {
+                " Последний ответ за " + "%.1f".format(Locale.US, ms / 1000.0) + "с."
+            } else ""
+            "Needle 3: локальный сервер активен." + timing
         } else {
             (engine?.nativeStatus() ?: "Needle 3: движок недоступен.") +
                 " Работаю через deterministic fast paths + fallback."
@@ -668,9 +673,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun refreshNote() {
-        val note = prefs.getString("last_note", null)
+        val notes = try {
+            NotesStore(this).listNotes(5)
+        } catch (_: Throwable) {
+            emptyList()
+        }
         findViewById<TextView>(R.id.noteText).text =
-            if (note == null) "Пока пусто." else "Последняя заметка:\n\n" + note
+            if (notes.isEmpty()) "Пока пусто."
+            else "Заметки:\n\n" + notes.mapIndexed { i, n -> (i + 1).toString() + ". " + n.text }.joinToString("\n")
     }
 
     private fun askSlot() {

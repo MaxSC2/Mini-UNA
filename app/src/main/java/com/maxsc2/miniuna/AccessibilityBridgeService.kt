@@ -33,6 +33,45 @@ class AccessibilityBridgeService : AccessibilityService() {
         else -> false
     }
 
+    fun tapText(query: String): String {
+        val service = this
+        val root = try {
+            service.rootInActiveWindow
+        } catch (_: Throwable) {
+            null
+        } ?: return "Не вижу экран. Включи службу Mini-UNA."
+        val q = query.trim().lowercase(java.util.Locale.getDefault())
+        if (q.isBlank()) return "Что нажать?"
+        var best: android.view.accessibility.AccessibilityNodeInfo? = null
+        var bestLen = Int.MAX_VALUE
+        fun walk(node: android.view.accessibility.AccessibilityNodeInfo?, depth: Int) {
+            if (node == null || depth > 8) return
+            val label = (node.text?.toString().orEmpty() + " " + node.contentDescription?.toString().orEmpty())
+                .trim().lowercase(java.util.Locale.getDefault())
+            if (label.contains(q) && label.length < bestLen) {
+                best = node
+                bestLen = label.length
+            }
+            for (i in 0 until node.childCount) walk(node.getChild(i), depth + 1)
+        }
+        return try {
+            walk(root, 0)
+            var target = best ?: return "Не нашла «" + query.trim() + "» на экране."
+            var hops = 0
+            while (!target.isClickable && target.parent != null && hops < 6) {
+                target = target.parent
+                hops++
+            }
+            if (target.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+                "Нажала «" + query.trim() + "»."
+            } else {
+                "Не получилось нажать."
+            }
+        } catch (_: Throwable) {
+            "Не получилось нажать."
+        }
+    }
+
     fun dumpScreenText(maxChars: Int = 2000, maxNodes: Int = 60): String {
         val root = try {
             rootInActiveWindow

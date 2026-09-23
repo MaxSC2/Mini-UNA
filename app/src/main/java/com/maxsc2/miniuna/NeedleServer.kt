@@ -42,6 +42,9 @@ class NeedleServer(private val context: Context) {
     @Volatile var lastError: String = "not started"
         private set
 
+    @Volatile var lastMs: Long = 0L
+        private set
+
     private val lock = Any()
     private val callLock = Any()
     private val startLock = Any()
@@ -257,8 +260,10 @@ class NeedleServer(private val context: Context) {
                     return null
                 }
             }
+            val t0 = System.currentTimeMillis()
             val answer = post("http://127.0.0.1:$PORT/complete", input)
                 ?: post("http://[::1]:$PORT/complete", input)
+            lastMs = System.currentTimeMillis() - t0
             // Сервер помнит контекст между запросами (stateless-архитектуре
             // приложения это мешает: следующий вызов галлюцинирует из истории).
             // Сбрасываем сессию в фоне, ответу не мешаем.

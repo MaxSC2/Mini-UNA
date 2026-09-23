@@ -128,6 +128,12 @@ object SlotHelper {
             if (args["hour"].isNullOrBlank() || args["minutes"].isNullOrBlank()) out.add("dismiss_time")
             out
         }
+        "NOTIF_REPLY" -> {
+            val out = mutableListOf<String>()
+            if (args["app"].isNullOrBlank()) out.add("app")
+            if (args["text"].isNullOrBlank()) out.add("reply_text")
+            out
+        }
         else -> emptyList()
     }
 
@@ -137,6 +143,8 @@ object SlotHelper {
         "duration" -> "На сколько поставить таймер?"
         "delay" -> "Через сколько напомнить?"
         "dismiss_time" -> "Во сколько будильник выключить?"
+        "app" -> "Кому ответить?"
+        "reply_text" -> "Что ответить?"
         else -> "Уточни, пожалуйста."
     }
 
@@ -169,6 +177,22 @@ object SlotHelper {
             parseDurationSec(answer)?.let { s ->
                 p.args["seconds"] = s.toString()
                 p.missing -= "duration"
+                progressed = true
+            }
+        }
+        if ("app" in p.missing) {
+            val name = answer.trim().trim('.', ',', '!', '?')
+            if (name.isNotBlank()) {
+                p.args["app"] = name
+                p.missing -= "app"
+                progressed = true
+            }
+        }
+        if ("reply_text" in p.missing) {
+            val text = answer.trim()
+            if (text.isNotEmpty() && !isCancel(answer)) {
+                p.args["text"] = text
+                p.missing -= "reply_text"
                 progressed = true
             }
         }

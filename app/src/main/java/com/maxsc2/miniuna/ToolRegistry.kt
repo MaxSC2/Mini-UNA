@@ -19,9 +19,18 @@ class ToolRegistry(
         "OPEN_WEB" -> android.openWeb(result.arguments["target"].orEmpty())
         "CALCULATE" -> android.calculate(result.arguments["expression"].orEmpty())
         "SAVE_NOTE" -> {
-            saveNote(result.arguments["note"].orEmpty())
-            "Записала. Заметка сохранена на устройстве."
+            val note = result.arguments["note"].orEmpty()
+            saveNote(note)
+            android.noteAdd(note)
         }
+        "NOTE_LIST" -> android.noteList()
+        "NOTE_CLEAR" -> android.noteClear()
+        "SHOP_ADD" -> android.shopAdd(result.arguments["list"].orEmpty(), result.arguments["item"].orEmpty())
+        "SHOP_LIST" -> android.shopList(result.arguments["list"].orEmpty())
+        "SHOP_REMOVE" -> android.shopRemove(result.arguments["list"].orEmpty(), result.arguments["item"].orEmpty())
+        "CALENDAR_TODAY" -> android.calendarDay(0)
+        "CALENDAR_TOMORROW" -> android.calendarDay(1)
+        "CALENDAR_NEXT" -> android.calendarNext()
         "SET_TIMER_SECONDS" -> android.setTimer(result.arguments["seconds"]?.toIntOrNull() ?: 60)
         "SET_TIMER" -> android.setTimer(result.arguments["seconds"]?.toIntOrNull() ?: 60)
         "SET_ALARM" -> {
@@ -60,6 +69,8 @@ class ToolRegistry(
         "MEDIA_PREV" -> android.mediaPrevious()
         "SCREEN_READ" -> android.screenText()
         "NOTIF_READ" -> android.recentNotifications()
+        "NOTIF_REPLY" -> android.replyNotification(result.arguments["app"].orEmpty(), result.arguments["text"].orEmpty())
+        "SCREEN_TAP" -> android.screenTap(result.arguments["text"].orEmpty())
         "NOTIF_FOLLOW" -> android.followNotifications(result.arguments["app"].orEmpty())
         "NOTIF_UNFOLLOW" -> android.unfollowNotifications(result.arguments["app"].orEmpty())
         "YOUTUBE_SEARCH" -> android.youtubeSearch(result.arguments["query"].orEmpty())

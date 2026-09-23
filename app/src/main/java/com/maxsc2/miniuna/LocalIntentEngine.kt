@@ -47,6 +47,20 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("CALCULATE", 0.96f, mapOf("expression" to raw.substringAfter(" ").trim()))
             t.startsWith("заметка ") || t.startsWith("запиши ") ->
                 IntentResult("SAVE_NOTE", 0.95f, mapOf("note" to raw.substringAfter(" ").trim()))
+            t.contains("покажи заметки") || t.contains("список заметок") ||
+                t.contains("что в заметках") || t.contains("мои заметки") || t == "заметки" ->
+                IntentResult("NOTE_LIST", 0.95f)
+            t.contains("очисти заметки") || t.contains("удали все заметки") || t.contains("удали заметки") ->
+                IntentResult("NOTE_CLEAR", 0.9f)
+            t.contains("что у меня сегодня") || t.contains("мой день") ||
+                t.contains("расписание на сегодня") || t.contains("планы на сегодня") ||
+                t.contains("что сегодня") ->
+                IntentResult("CALENDAR_TODAY", 0.95f)
+            t.contains("что завтра") || t.contains("планы на завтра") || t.contains("расписание на завтра") ->
+                IntentResult("CALENDAR_TOMORROW", 0.95f)
+            t.contains("что дальше") || t.contains("следующее событие") ||
+                t.contains("что следующее") || t.contains("ближайшие события") ->
+                IntentResult("CALENDAR_NEXT", 0.95f)
             t.contains("будильник") || t.contains("будильника") ->
                 if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
                     val args = mutableMapOf<String, String>()
@@ -83,6 +97,41 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("VOLUME_DOWN", 0.95f)
             t.contains("без звука") || t.contains("убери звук") ->
                 IntentResult("VOLUME_MUTE", 0.95f)
+            t.startsWith("добавь ") -> run {
+                val clean = raw.trim()
+                val mListFirst = Regex("(?i)^добавь\\s+в\\s+(\\S+)\\s+(.+?)\\s*[.!?]?$").find(clean)
+                if (mListFirst != null) {
+                    IntentResult(
+                        "SHOP_ADD", 0.93f,
+                        mapOf("item" to mListFirst.groupValues[2].trim(), "list" to mListFirst.groupValues[1].trim())
+                    )
+                } else {
+                    val mItemFirst = Regex("(?i)^добавь\\s+(.+?)\\s+в\\s+(\\S+)\\s*[.!?]?$").find(clean)
+                    if (mItemFirst != null) {
+                        IntentResult(
+                            "SHOP_ADD", 0.93f,
+                            mapOf("item" to mItemFirst.groupValues[1].trim(), "list" to mItemFirst.groupValues[2].trim())
+                        )
+                    } else {
+                        IntentResult("SHOP_ADD", 0.9f, mapOf("item" to clean.substringAfter("добавь ").trim(), "list" to ""))
+                    }
+                }
+            }
+            t.contains("список покупок") || t.contains("списке покупок") ||
+                t.contains("что купить") || t.contains("что в покупках") ->
+                IntentResult("SHOP_LIST", 0.93f, mapOf("list" to "покупки"))
+            t.startsWith("убери ") || t.startsWith("удали ") || t.startsWith("вычеркни ") -> run {
+                val clean = raw.trim()
+                val m = Regex("(?i)^(?:убери|удали|вычеркни)\\s+(.+?)(?:\\s+из\\s+(.+?))?\\s*[.!?]?$").find(clean)
+                if (m == null) {
+                    IntentResult("UNKNOWN", 0f)
+                } else {
+                    IntentResult(
+                        "SHOP_REMOVE", 0.93f,
+                        mapOf("item" to m.groupValues[1].trim(), "list" to m.groupValues[2].trim())
+                    )
+                }
+            }
             t.contains("выключи музыку") || t.contains("выключи музон") ||
                 t.contains("останови музыку") || t.contains("останови музон") || t == "стоп" ->
                 IntentResult("MEDIA_PAUSE", 0.95f)
@@ -100,6 +149,11 @@ class LocalIntentEngine : IntentEngine {
             t.contains("прочитай уведомления") || t.contains("покажи уведомления") ||
                 t.contains("что в уведомлениях") || t == "уведомления" ->
                 IntentResult("NOTIF_READ", 0.95f)
+            t.contains("нажми на ") || t.contains("нажми ") ||
+                t.contains("тапни ") || t.contains("кликни ") ->
+                IntentResult("SCREEN_TAP", 0.93f, mapOf("text" to raw.trim()))
+            t.startsWith("ответь ") ->
+                IntentResult("NOTIF_REPLY", 0.9f, mapOf("app" to "", "text" to raw.substringAfter("ответь ").trim()))
             t.contains("не следи за ") ->
                 IntentResult("NOTIF_UNFOLLOW", 0.9f, mapOf("app" to raw.substringAfter("не следи за ").trim()))
             t.contains("следи за ") ->

@@ -20,7 +20,8 @@ class NeedleEngine(
             "CALCULATE", "SAVE_NOTE",
             "SET_TIMER_SECONDS", "SET_TIMER_MINUTES", "SET_TIMER_HOURS",
             "NOTIF_FOLLOW", "NOTIF_UNFOLLOW",
-            "YOUTUBE_SEARCH", "TG_SHARE", "REMIND"
+            "YOUTUBE_SEARCH", "TG_SHARE", "REMIND", "SCREEN_TAP",
+            "SHOP_ADD", "SHOP_REMOVE"
         )
     }
 
@@ -163,6 +164,8 @@ class NeedleEngine(
     }
 
     fun isNativeReady(): Boolean = nativeReady
+
+    fun serverLastMs(): Long = server.lastMs
 
     fun nativeStatus(): String = when {
         isNativeReady() -> "Needle 3: локальный сервер активен."
@@ -373,6 +376,25 @@ class NeedleEngine(
             t == "уведомления"
         ) {
             return IntentResult("NOTIF_READ", 0.995f, reasoning = "deterministic notifications fast path")
+        }
+
+        if (
+            t.contains("нажми на ") || t.contains("нажми ") ||
+            t.contains("тапни ") || t.contains("кликни ")
+        ) {
+            return IntentResult("SCREEN_TAP", 0.99f, mapOf("text" to raw.trim()), reasoning = "deterministic screen fast path")
+        }
+
+        if (t.startsWith("ответь ")) {
+            val rest = raw.trim().substringAfter("ответь ").trim()
+            val first = rest.substringBefore(" ").trim()
+            val appArg = androidTools.resolveInstalledApp(first)?.label.orEmpty()
+            val textArg = if (appArg.isNotEmpty()) rest.substringAfter(" ").trim() else rest
+            return IntentResult(
+                "NOTIF_REPLY", 0.97f,
+                mapOf("app" to appArg, "text" to textArg),
+                reasoning = "deterministic notifications fast path"
+            )
         }
 
         val followMatch = Regex(".*следи за\\s+(.+?)\\s*[.!?]?$").find(t)
@@ -697,7 +719,25 @@ class NeedleEngine(
             "unfollow_notifications" -> "NOTIF_UNFOLLOW"
             "youtube_search" -> "YOUTUBE_SEARCH"
             "send_telegram" -> "TG_SHARE"
+            "notif_reply" -> "NOTIF_REPLY"
+            "screen_tap" -> "SCREEN_TAP"
             "remind" -> "REMIND"
+            "note_list" -> "NOTE_LIST"
+            "note_clear" -> "NOTE_CLEAR"
+            "shop_add" -> "SHOP_ADD"
+            "shop_list" -> "SHOP_LIST"
+            "shop_remove" -> "SHOP_REMOVE"
+            "calendar_today" -> "CALENDAR_TODAY"
+            "calendar_tomorrow" -> "CALENDAR_TOMORROW"
+            "calendar_next" -> "CALENDAR_NEXT"
+            "note_list" -> "NOTE_LIST"
+            "note_clear" -> "NOTE_CLEAR"
+            "shop_add" -> "SHOP_ADD"
+            "shop_list" -> "SHOP_LIST"
+            "shop_remove" -> "SHOP_REMOVE"
+            "calendar_today" -> "CALENDAR_TODAY"
+            "calendar_tomorrow" -> "CALENDAR_TOMORROW"
+            "calendar_next" -> "CALENDAR_NEXT"
             "go_back" -> "BACK"
             "go_home" -> "HOME"
             "open_recents" -> "RECENTS"

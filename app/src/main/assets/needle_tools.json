@@ -397,5 +397,114 @@
       "description": "Open the system Bluetooth settings panel with a switch.",
       "parameters": {"type": "object", "properties": {}, "required": []}
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "notif_reply",
+      "description": "Reply to a recent notification, optionally from the named app. The reply is sent through the notification's own reply button.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app": {"type": "string"},
+          "text": {"type": "string", "minLength": 1}
+        },
+        "required": ["text"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "screen_tap",
+      "description": "Tap the on-screen element with the given text, using the accessibility service.",
+      "parameters": {
+        "type": "object",
+        "properties": {"text": {"type": "string", "minLength": 1}},
+        "required": ["text"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "note_list",
+      "description": "List the user's saved notes stored on this device.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "note_clear",
+      "description": "Delete all saved notes on this device.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_add",
+      "description": "Add an item to a shopping list on this device.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item": {"type": "string", "minLength": 1},
+          "list": {"type": "string"}
+        },
+        "required": ["item"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_list",
+      "description": "Show a shopping list stored on this device.",
+      "parameters": {
+        "type": "object",
+        "properties": {"list": {"type": "string"}},
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "shop_remove",
+      "description": "Remove an item from a shopping list on this device.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "item": {"type": "string", "minLength": 1},
+          "list": {"type": "string"}
+        },
+        "required": ["item"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calendar_today",
+      "description": "List today's calendar events on this device.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calendar_tomorrow",
+      "description": "List tomorrow's calendar events on this device.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calendar_next",
+      "description": "Show the next upcoming calendar events on this device.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
   }
 ]
