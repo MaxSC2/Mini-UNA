@@ -673,43 +673,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (note == null) "Пока пусто." else "Последняя заметка:\n\n" + note
     }
 
-    private fun confirmAnswer(answer: String, result: IntentResult) {
-        val t = answer.trim().lowercase(Locale.getDefault())
-        val yes = listOf("да", "ага", "угу", "давай", "конечно", "выполняй", "выполни", "ладно", "хорошо", "пусть")
-            .any { t == it || t.startsWith("$it ") || t.startsWith("$it,") }
-        val no = listOf("нет", "не надо", "отмена", "отмени", "стоп", "хватит", "не нужно", "неа")
-            .any { t == it || t.startsWith("$it ") || t.startsWith("$it,") }
-        when {
-            yes -> {
-                pendingConfirm = null
-                confirmRetries = 0
-                try {
-                    val response = toolRegistry.execute(result)
-                    if (response == null) respond("Инструмент не подключён.")
-                    else respond(response)
-                } catch (_: Throwable) {
-                    respond("Android не смог выполнить эту команду.")
-                }
-                updateModelStatus()
-            }
-            no -> {
-                pendingConfirm = null
-                confirmRetries = 0
-                respond("Ладно, не выполняю.")
-                updateModelStatus()
-            }
-            confirmRetries >= 1 -> {
-                pendingConfirm = null
-                confirmRetries = 0
-                handle(answer)
-            }
-            else -> {
-                confirmRetries++
-                respond("Не поняла. Скажи «да» или «нет».", autoListen = true)
-            }
-        }
-    }
-
     private fun askSlot() {
         val p = pending ?: return
         val slot = p.missing.firstOrNull() ?: return
