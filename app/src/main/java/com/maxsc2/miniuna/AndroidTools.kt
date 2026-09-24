@@ -719,6 +719,25 @@ class AndroidTools(private val context: Context) {
         }
     }
 
+    // Выгрузка заметок: JSON текстом через шаринг — без разрешений и файлов.
+    fun exportNotes(): String {
+        return try {
+            val exp = NotesStore(context).exportAll()
+            val json = buildNotesExport(exp.notes, exp.lists)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "Заметки Юны")
+                putExtra(Intent.EXTRA_TEXT, json)
+            }
+            val chooser = Intent.createChooser(intent, "Заметки Юны")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+            "Открываю отправку: заметок ${exp.notes.size}, списков ${exp.lists.size}."
+        } catch (_: Throwable) {
+            "Не получилось выгрузить заметки."
+        }
+    }
+
     fun morningBriefing(): String {
         val now = java.util.Calendar.getInstance()
         val hello = when (now.get(java.util.Calendar.HOUR_OF_DAY)) {

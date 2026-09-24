@@ -25,6 +25,11 @@ class ToolRegistry(
         }
         "NOTE_LIST" -> android.noteList()
         "NOTE_CLEAR" -> android.noteClear()
+        "NOTES_EXPORT" -> android.exportNotes()
+        "NOTES_IMPORT" -> {
+            (context as? MainActivity)?.openNotesImport()
+            "Выбери файл выгрузки заметок."
+        }
         "SHOP_ADD" -> android.shopAdd(result.arguments["list"].orEmpty(), result.arguments["item"].orEmpty())
         "SHOP_LIST" -> android.shopList(result.arguments["list"].orEmpty())
         "SHOP_REMOVE" -> android.shopRemove(result.arguments["list"].orEmpty(), result.arguments["item"].orEmpty())

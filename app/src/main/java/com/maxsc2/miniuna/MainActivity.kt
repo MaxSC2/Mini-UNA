@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private val voiceRequest = 700
     private val micPermission = 701
+    private val importNotesRequest = 706
     private val prefs by lazy { getSharedPreferences("mini_una", MODE_PRIVATE) }
     private var pending: PendingSlot? = null
     private var pendingConfirm: IntentResult? = null
@@ -479,6 +480,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     @Deprecated("Simple Android speech callback")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == importNotesRequest) {
+            handleNotesImport(data)
+            return
+        }
         if (requestCode != voiceRequest) return
 
         mascot.setEmotion(prefs.getString("emotion", "neutral") ?: "neutral")
@@ -492,6 +497,40 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         val input = text.trim()
         if (pending != null) onSlotAnswer(input) else handle(input)
+    }
+
+    fun openNotesImport() {
+        try {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/json"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain"))
+            }
+            startActivityForResult(intent, importNotesRequest)
+        } catch (_: Throwable) {
+            respond("Не получилось открыть выбор файла.")
+        }
+    }
+
+    private fun handleNotesImport(data: Intent?) {
+        val uri = data?.data
+        if (uri == null) {
+            respond("Импорт отменён.")
+            return
+        }
+        try {
+            val text = contentResolver.openInputStream(uri)?.bufferedReader()?.readText().orEmpty()
+            val exp = parseNotesExport(text)
+            if (exp == null) {
+                respond("Не поняла файл: это не выгрузка Юны.")
+                return
+            }
+            NotesStore(this).importAll(exp)
+            respond("Загрузила: заметок ${exp.notes.size}, списков ${exp.lists.size}. Старое заменено.")
+        } catch (_: Throwable) {
+            respond("Не получилось прочитать файл.")
+        }
+        updateModelStatus()
     }
 
     private fun handle(raw: String) {

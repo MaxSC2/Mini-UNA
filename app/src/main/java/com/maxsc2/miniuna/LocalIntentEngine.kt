@@ -60,6 +60,12 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("NOTE_LIST", 0.95f)
             t.contains("очисти заметки") || t.contains("удали все заметки") || t.contains("удали заметки") ->
                 IntentResult("NOTE_CLEAR", 0.9f)
+            t.contains("экспорт заметок") || t.contains("выгрузи заметки") ||
+                t.contains("сохрани заметки") || t.contains("поделись заметками") ->
+                IntentResult("NOTES_EXPORT", 0.93f)
+            t.contains("импорт заметок") || t.contains("загрузи заметки") ||
+                t.contains("восстанови заметки") ->
+                IntentResult("NOTES_IMPORT", 0.93f)
             t.contains("что у меня сегодня") || t.contains("мой день") ||
                 t.contains("расписание на сегодня") || t.contains("планы на сегодня") ||
                 t.contains("что сегодня") ->

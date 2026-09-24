@@ -537,5 +537,21 @@
       "description": "Turn off the daily morning briefing.",
       "parameters": {"type": "object", "properties": {}, "required": []}
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "export_notes",
+      "description": "Export all notes and lists as JSON text via the share sheet (sync snapshot).",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "import_notes",
+      "description": "Import notes and lists from a previously exported JSON file (replaces current).",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
   }
 ]

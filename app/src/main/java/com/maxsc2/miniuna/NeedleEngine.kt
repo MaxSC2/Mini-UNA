@@ -498,6 +498,17 @@ class NeedleEngine(
             return IntentResult("BT_PANEL", 0.97f, reasoning = "deterministic connectivity fast path")
         }
 
+        // Notes sync: export/import snapshots, no slots needed.
+        if (t.contains("экспорт заметок") || t.contains("выгрузи заметки") ||
+            t.contains("сохрани заметки") || t.contains("поделись заметками")
+        ) {
+            return IntentResult("NOTES_EXPORT", 0.97f, reasoning = "deterministic notes sync fast path")
+        }
+        if (t.contains("импорт заметок") || t.contains("загрузи заметки") ||
+            t.contains("восстанови заметки")
+        ) {
+            return IntentResult("NOTES_IMPORT", 0.97f, reasoning = "deterministic notes sync fast path")
+        }
         // Morning briefing watcher: gaps are asked later.
         if (t.contains("сводк") || t.contains("брифинг") || t.contains("рассказывай планы")) {
             if (t.contains("выключи") || t.contains("убери") || t.contains("хватит") || t.contains("отмени")) {
@@ -771,6 +782,8 @@ class NeedleEngine(
             "set_briefing" -> "BRIEFING_SET"
             "stop_briefing" -> "BRIEFING_OFF"
             "note_list" -> "NOTE_LIST"
+            "export_notes" -> "NOTES_EXPORT"
+            "import_notes" -> "NOTES_IMPORT"
             "note_clear" -> "NOTE_CLEAR"
             "shop_add" -> "SHOP_ADD"
             "shop_list" -> "SHOP_LIST"
@@ -779,6 +792,8 @@ class NeedleEngine(
             "calendar_tomorrow" -> "CALENDAR_TOMORROW"
             "calendar_next" -> "CALENDAR_NEXT"
             "note_list" -> "NOTE_LIST"
+            "export_notes" -> "NOTES_EXPORT"
+            "import_notes" -> "NOTES_IMPORT"
             "note_clear" -> "NOTE_CLEAR"
             "shop_add" -> "SHOP_ADD"
             "shop_list" -> "SHOP_LIST"

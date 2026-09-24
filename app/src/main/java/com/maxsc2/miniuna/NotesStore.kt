@@ -102,4 +102,38 @@ class NotesStore(private val context: Context) {
             false
         }
     }
+
+    fun shopListNames(): List<String> {
+        return try {
+            val all = JSONObject(prefs().getString("shop_lists", "{}"))
+            all.keys().asSequence().toList()
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    // Снапшот для выгрузки; импорт заменяет всё целиком (семантика восстановления).
+    fun exportAll(): NotesExport {
+        val lists = mutableMapOf<String, List<String>>()
+        for (name in shopListNames()) lists[name] = listShop(name)
+        return NotesExport(listNotes(1000), lists)
+    }
+
+    fun importAll(exp: NotesExport) {
+        try {
+            val narr = JSONArray()
+            for (n in exp.notes.take(50)) narr.put(JSONObject().put("text", n.text).put("time", n.time))
+            val lobj = JSONObject()
+            for ((name, items) in exp.lists) {
+                val arr = JSONArray()
+                for (it in items) arr.put(it)
+                lobj.put(name, arr)
+            }
+            prefs().edit()
+                .putString("notes_list", narr.toString())
+                .putString("shop_lists", lobj.toString())
+                .apply()
+        } catch (_: Throwable) {
+        }
+    }
 }

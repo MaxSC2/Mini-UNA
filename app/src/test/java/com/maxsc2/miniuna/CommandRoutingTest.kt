@@ -130,4 +130,36 @@ class CommandRoutingTest {
         // Календарный вопрос не угоняется сводкой.
         assertEquals("CALENDAR_TODAY", engine.classify("какие планы на сегодня").intent)
     }
+
+    @Test
+    fun notesSyncIntents() {
+        assertEquals("NOTES_EXPORT", engine.classify("выгрузи заметки").intent)
+        assertEquals("NOTES_EXPORT", engine.classify("поделись заметками").intent)
+        assertEquals("NOTES_IMPORT", engine.classify("загрузи заметки").intent)
+        assertEquals("NOTE_LIST", engine.classify("покажи заметки").intent)
+    }
+
+    @Test
+    fun notesExportRoundTrip() {
+        val notes = listOf(
+            NotesStore.Note("Купить \"молоко\"\nи хлеб", 1727000000000L),
+            NotesStore.Note("back\\slash", 0L)
+        )
+        val lists = mapOf("покупки" to listOf("сыр", "чай с \"бергамотом\""), "пустой" to emptyList())
+        val json = buildNotesExport(notes, lists)
+        val back = parseNotesExport(json)
+        assertEquals(notes, back?.notes)
+        assertEquals(lists, back?.lists)
+    }
+
+    @Test
+    fun notesExportRejectsGarbage() {
+        assertEquals(null, parseNotesExport(""))
+        assertEquals(null, parseNotesExport("{oops"))
+        assertEquals(null, parseNotesExport("{\"app\":\"other\",\"v\":1}"))
+        assertEquals(null, parseNotesExport(buildNotesExport(emptyList(), emptyMap()) + "trailing"))
+        // \uXXXX-escape чужого парсера тоже читаем.
+        val dartStyle = "{\"app\":\"mini-una\",\"v\":1,\"notes\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0432\\u0435\\u0442\",\"time\":1}],\"lists\":{}}"
+        assertEquals("Привет", parseNotesExport(dartStyle)?.notes?.firstOrNull()?.text)
+    }
 }
