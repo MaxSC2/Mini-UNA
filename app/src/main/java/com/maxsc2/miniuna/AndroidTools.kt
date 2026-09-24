@@ -628,14 +628,39 @@ class AndroidTools(private val context: Context) {
                 android.app.PendingIntent.FLAG_IMMUTABLE
             val pi = android.app.PendingIntent.getBroadcast(context, id, intent, flags)
             val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            am.set(
-                android.app.AlarmManager.RTC_WAKEUP,
-                System.currentTimeMillis() + secs * 1000L,
-                pi
-            )
-            "Напомню через " + formatDuration(secs) + ": «" + text.ifBlank { "без текста" } + "»."
+            val triggerAt = System.currentTimeMillis() + secs * 1000L
+            var exact = false
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                if (am.canScheduleExactAlarms()) {
+                    am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                    exact = true
+                } else {
+                    am.set(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                }
+            } else {
+                am.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                exact = true
+            }
+            "Напомню через " + formatDuration(secs) + ": «" + text.ifBlank { "без текста" } + "»." +
+                if (exact) "" else " (неточно: разреши точные будильники в настройках системы)"
         } catch (_: Throwable) {
             "Не получилось поставить напоминание."
+        }
+    }
+
+    fun openExactAlarmSettings(): Boolean {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            } else {
+                false
+            }
+        } catch (_: Throwable) {
+            false
         }
     }
 

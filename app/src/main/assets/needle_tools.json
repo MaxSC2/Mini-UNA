@@ -506,5 +506,13 @@
       "description": "Show the next upcoming calendar events on this device.",
       "parameters": {"type": "object", "properties": {}, "required": []}
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "alarm_settings",
+      "description": "Open the system settings screen where the user grants exact alarm permission.",
+      "parameters": {"type": "object", "properties": {}, "required": []}
+    }
   }
 ]

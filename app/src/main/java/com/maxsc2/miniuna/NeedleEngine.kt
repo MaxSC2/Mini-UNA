@@ -499,6 +499,9 @@ class NeedleEngine(
         }
 
         // Alarm clock: time and days are parsed here, gaps are asked later.
+        if (t.contains("точные будильники") || t.contains("точный будильник")) {
+            return IntentResult("ALARM_SETTINGS", 0.97f, reasoning = "deterministic alarm fast path")
+        }
         if (t.contains("будильник") || t.contains("будильника")) {
             if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
                 val args = mutableMapOf<String, String>()
@@ -752,6 +755,7 @@ class NeedleEngine(
             "notif_reply" -> "NOTIF_REPLY"
             "screen_tap" -> "SCREEN_TAP"
             "remind" -> "REMIND"
+            "alarm_settings" -> "ALARM_SETTINGS"
             "note_list" -> "NOTE_LIST"
             "note_clear" -> "NOTE_CLEAR"
             "shop_add" -> "SHOP_ADD"

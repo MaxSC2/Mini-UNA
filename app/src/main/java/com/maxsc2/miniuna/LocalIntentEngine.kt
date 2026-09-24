@@ -49,6 +49,8 @@ class LocalIntentEngine : IntentEngine {
                 IntentResult("OPEN_WEB", 0.92f, mapOf("target" to raw.substringAfter(" ").trim()))
             t.startsWith("открой сайт ") || t.startsWith("зайди на ") ->
                 IntentResult("OPEN_WEB", 0.94f, mapOf("target" to raw.substringAfter(" ").trim()))
+            t.contains("точные будильники") || t.contains("точный будильник") ->
+                IntentResult("ALARM_SETTINGS", 0.93f)
             t.startsWith("посчитай ") || t.startsWith("вычисли ") ->
                 IntentResult("CALCULATE", 0.96f, mapOf("expression" to raw.substringAfter(" ").trim()))
             t.startsWith("заметка ") || t.startsWith("запиши ") ->

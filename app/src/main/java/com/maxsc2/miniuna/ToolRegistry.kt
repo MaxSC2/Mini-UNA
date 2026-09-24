@@ -76,6 +76,11 @@ class ToolRegistry(
         "YOUTUBE_SEARCH" -> android.youtubeSearch(result.arguments["query"].orEmpty())
         "TG_SHARE" -> android.tgShare(result.arguments["text"].orEmpty())
         "REMIND" -> android.remind(result.arguments["text"].orEmpty(), result.arguments["seconds"]?.toIntOrNull() ?: 3600)
+        "ALARM_SETTINGS" -> if (android.openExactAlarmSettings()) {
+            "Открываю настройки точных будильников."
+        } else {
+            "На этом Android точные будильники включены по умолчанию."
+        }
         "BACK" -> android.accessibility("BACK")
         "HOME" -> android.accessibility("HOME")
         "RECENTS" -> android.accessibility("RECENTS")

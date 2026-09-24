@@ -92,4 +92,28 @@ class CommandRoutingTest {
             SlotHelper.missing("SET_ALARM", mapOf("hour" to "7", "minutes" to "0", "days" to "2,3,4,5,6"))
         )
     }
+
+    @Test
+    fun dismissFlow() {
+        val bare = engine.classify("выключи будильник")
+        assertEquals("ALARM_DISMISS", bare.intent)
+        assertEquals(listOf("dismiss_time"), SlotHelper.missing(bare.intent, bare.arguments))
+        val full = engine.classify("выключи будильник на 7")
+        assertEquals("ALARM_DISMISS", full.intent)
+        assertEquals("7", full.arguments["hour"])
+        assertEquals(
+            listOf("dismiss_days"),
+            SlotHelper.missing(full.intent, full.arguments)
+        )
+    }
+
+    @Test
+    fun allDaysWord() {
+        assertEquals(7, parseDaysRu("все")?.size)
+    }
+
+    @Test
+    fun exactAlarmSettings() {
+        assertEquals("ALARM_SETTINGS", engine.classify("разреши точные будильники").intent)
+    }
 }
