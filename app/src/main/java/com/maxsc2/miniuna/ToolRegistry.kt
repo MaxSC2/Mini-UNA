@@ -6,7 +6,7 @@ import java.util.Date
 import java.util.Locale
 
 class ToolRegistry(
-    context: Context,
+    private val context: Context,
     private val saveNote: (String) -> Unit
 ) {
     private val android = AndroidTools(context)
