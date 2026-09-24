@@ -69,6 +69,17 @@ class LocalIntentEngine : IntentEngine {
             t.contains("что дальше") || t.contains("следующее событие") ||
                 t.contains("что следующее") || t.contains("ближайшие события") ->
                 IntentResult("CALENDAR_NEXT", 0.95f)
+            t.contains("сводк") || t.contains("брифинг") || t.contains("рассказывай планы") ->
+                if (t.contains("выключи") || t.contains("убери") || t.contains("хватит") || t.contains("отмени")) {
+                    IntentResult("BRIEFING_OFF", 0.93f)
+                } else {
+                    val args = mutableMapOf<String, String>()
+                    parseTimeRu(t)?.let { (h, m) ->
+                        args["hour"] = h.toString()
+                        args["minutes"] = m.toString()
+                    }
+                    IntentResult("BRIEFING_SET", 0.93f, args)
+                }
             t.contains("будильник") || t.contains("будильника") ->
                 if (t.contains("отмени") || t.contains("удали") || t.contains("выключи") || t.contains("убери")) {
                     val args = mutableMapOf<String, String>()

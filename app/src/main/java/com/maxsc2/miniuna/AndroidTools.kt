@@ -664,6 +664,99 @@ class AndroidTools(private val context: Context) {
         }
     }
 
+    // Утренняя сводка: ежедневный вотчер через AlarmManager (inexact — бережно к батарее).
+    fun scheduleBriefing(hour: Int, minute: Int): Boolean {
+        return try {
+            val h = hour.coerceIn(0, 23)
+            val m = minute.coerceIn(0, 59)
+            val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val intent = Intent(context, WatcherReceiver::class.java)
+                .setAction(WatcherReceiver.ACTION_BRIEFING)
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                android.app.PendingIntent.FLAG_IMMUTABLE
+            val pi = android.app.PendingIntent.getBroadcast(context, 9100, intent, flags)
+            val first = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, h)
+                set(java.util.Calendar.MINUTE, m)
+                set(java.util.Calendar.SECOND, 0)
+                if (timeInMillis <= System.currentTimeMillis()) add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+            am.setInexactRepeating(
+                android.app.AlarmManager.RTC_WAKEUP, first.timeInMillis,
+                android.app.AlarmManager.INTERVAL_DAY, pi
+            )
+            prefs().edit().putInt("briefing_hour", h).putInt("briefing_minute", m).apply()
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun setBriefing(hour: Int, minute: Int): String {
+        val h = hour.coerceIn(0, 23)
+        val m = minute.coerceIn(0, 59)
+        return if (scheduleBriefing(h, m)) {
+            "Буду рассказывать сводку каждый день в %02d:%02d.".format(h, m)
+        } else {
+            "Не получилось завести сводку."
+        }
+    }
+
+    fun stopBriefing(): String {
+        return try {
+            val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val intent = Intent(context, WatcherReceiver::class.java)
+                .setAction(WatcherReceiver.ACTION_BRIEFING)
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                android.app.PendingIntent.FLAG_IMMUTABLE
+            val pi = android.app.PendingIntent.getBroadcast(context, 9100, intent, flags)
+            am.cancel(pi)
+            pi.cancel()
+            prefs().edit().remove("briefing_hour").remove("briefing_minute").apply()
+            "Сводку выключила."
+        } catch (_: Throwable) {
+            "Не получилось выключить сводку."
+        }
+    }
+
+    fun morningBriefing(): String {
+        val now = java.util.Calendar.getInstance()
+        val hello = when (now.get(java.util.Calendar.HOUR_OF_DAY)) {
+            in 5..11 -> "Доброе утро!"
+            in 12..17 -> "Добрый день!"
+            in 18..22 -> "Добрый вечер!"
+            else -> "Доброй ночи!"
+        }
+        val date = java.text.SimpleDateFormat("d MMMM, EEEE", java.util.Locale("ru", "RU"))
+            .format(now.time)
+        val parts = mutableListOf("$hello Сегодня $date.")
+        if (context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                val bounds = java.util.Calendar.getInstance()
+                bounds.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                bounds.set(java.util.Calendar.MINUTE, 0)
+                bounds.set(java.util.Calendar.SECOND, 0)
+                val start = bounds.timeInMillis
+                bounds.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                bounds.set(java.util.Calendar.MINUTE, 59)
+                val events = queryDay(start, bounds.timeInMillis)
+                parts.add(
+                    if (events.isEmpty()) "В календаре на сегодня ничего нет."
+                    else "По календарю: " + events.joinToString("; ") + "."
+                )
+            } catch (_: Throwable) {
+            }
+        }
+        try {
+            val notes = NotesStore(context).listNotes(1000).size
+            if (notes > 0) parts.add("Заметок: $notes.")
+        } catch (_: Throwable) {
+        }
+        return parts.joinToString(" ")
+    }
+
     fun calendarDay(offsetDays: Int): String {
         if (context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED

@@ -125,6 +125,8 @@ object SlotHelper {
             if (args.values.all { it.isBlank() }) listOf("duration") else emptyList()
         "REMIND" ->
             if (args["seconds"].isNullOrBlank()) listOf("delay") else emptyList()
+        "BRIEFING_SET" ->
+            if (args["hour"].isNullOrBlank() || args["minutes"].isNullOrBlank()) listOf("brief_time") else emptyList()
         "ALARM_DISMISS" -> {
             val out = mutableListOf<String>()
             if (args["hour"].isNullOrBlank() || args["minutes"].isNullOrBlank()) out.add("dismiss_time")
@@ -145,6 +147,7 @@ object SlotHelper {
         "days" -> "На какие дни поставить: будни, выходные или каждый день?"
         "duration" -> "На сколько поставить таймер?"
         "delay" -> "Через сколько напомнить?"
+        "brief_time" -> "Во сколько рассказывать утреннюю сводку?"
         "dismiss_time" -> "Во сколько будильник выключить?"
         "dismiss_days" -> "На какой день выключить? Скажи день, будни, выходные или «все»."
         "app" -> "Кому ответить?"
@@ -181,6 +184,14 @@ object SlotHelper {
             parseDurationSec(answer)?.let { s ->
                 p.args["seconds"] = s.toString()
                 p.missing -= "duration"
+                progressed = true
+            }
+        }
+        if ("brief_time" in p.missing) {
+            parseTimeRu(answer)?.let { (h, m) ->
+                p.args["hour"] = h.toString()
+                p.args["minutes"] = m.toString()
+                p.missing -= "brief_time"
                 progressed = true
             }
         }

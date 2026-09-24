@@ -498,6 +498,18 @@ class NeedleEngine(
             return IntentResult("BT_PANEL", 0.97f, reasoning = "deterministic connectivity fast path")
         }
 
+        // Morning briefing watcher: gaps are asked later.
+        if (t.contains("сводк") || t.contains("брифинг") || t.contains("рассказывай планы")) {
+            if (t.contains("выключи") || t.contains("убери") || t.contains("хватит") || t.contains("отмени")) {
+                return IntentResult("BRIEFING_OFF", 0.97f, reasoning = "deterministic briefing fast path")
+            }
+            val args = mutableMapOf<String, String>()
+            parseTimeRu(t)?.let { (h, m) ->
+                args["hour"] = h.toString()
+                args["minutes"] = m.toString()
+            }
+            return IntentResult("BRIEFING_SET", 0.97f, args, reasoning = "deterministic briefing fast path")
+        }
         // Alarm clock: time and days are parsed here, gaps are asked later.
         if (t.contains("точные будильники") || t.contains("точный будильник")) {
             return IntentResult("ALARM_SETTINGS", 0.97f, reasoning = "deterministic alarm fast path")
@@ -756,6 +768,8 @@ class NeedleEngine(
             "screen_tap" -> "SCREEN_TAP"
             "remind" -> "REMIND"
             "alarm_settings" -> "ALARM_SETTINGS"
+            "set_briefing" -> "BRIEFING_SET"
+            "stop_briefing" -> "BRIEFING_OFF"
             "note_list" -> "NOTE_LIST"
             "note_clear" -> "NOTE_CLEAR"
             "shop_add" -> "SHOP_ADD"

@@ -81,6 +81,12 @@ class ToolRegistry(
         } else {
             "На этом Android точные будильники включены по умолчанию."
         }
+        "BRIEFING_SET" -> {
+            val h = result.arguments["hour"]?.toIntOrNull()
+            val m = result.arguments["minutes"]?.toIntOrNull()
+            if (h == null || m == null) "Во сколько рассказывать сводку?" else android.setBriefing(h, m)
+        }
+        "BRIEFING_OFF" -> android.stopBriefing()
         "BACK" -> android.accessibility("BACK")
         "HOME" -> android.accessibility("HOME")
         "RECENTS" -> android.accessibility("RECENTS")

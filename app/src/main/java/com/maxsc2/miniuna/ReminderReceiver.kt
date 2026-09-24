@@ -14,18 +14,24 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val text = intent.getStringExtra("text").orEmpty().ifBlank { "Напоминание!" }
         val id = intent.getIntExtra("id", 0)
+        announce(context, "Юна напоминает", text, 9000 + id, "Напоминаю: $text")
+    }
+
+    companion object {
+        // Общая точка «уведомление + озвучка» для фоновых ресиверов (напоминания, сводка).
+        fun announce(context: Context, title: String, text: String, notifId: Int, speakText: String) {
         try {
             val nm = context.getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(
                 NotificationChannel("reminders", "Напоминания Юны", NotificationManager.IMPORTANCE_HIGH)
             )
             val notif = NotificationCompat.Builder(context, "reminders")
-                .setContentTitle("Юна напоминает")
+                .setContentTitle(title)
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setAutoCancel(true)
                 .build()
-            NotificationManagerCompat.from(context).notify(9000 + id, notif)
+            NotificationManagerCompat.from(context).notify(notifId, notif)
         } catch (_: Throwable) {
         }
         try {
@@ -42,7 +48,7 @@ class ReminderReceiver : BroadcastReceiver() {
             Thread {
                 try {
                     Thread.sleep(1200)
-                    tts.speak("Напоминаю: $text", TextToSpeech.QUEUE_FLUSH, null, "mini_una_remind")
+                    tts.speak(speakText, TextToSpeech.QUEUE_FLUSH, null, "mini_una_bg")
                     Thread.sleep(4000)
                 } catch (_: Throwable) {
                 }
@@ -52,6 +58,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
             }.apply { isDaemon = true; start() }
         } catch (_: Throwable) {
+        }
         }
     }
 }

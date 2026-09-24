@@ -116,4 +116,18 @@ class CommandRoutingTest {
     fun exactAlarmSettings() {
         assertEquals("ALARM_SETTINGS", engine.classify("разреши точные будильники").intent)
     }
+
+    @Test
+    fun briefingFlow() {
+        val bare = engine.classify("включи утреннюю сводку")
+        assertEquals("BRIEFING_SET", bare.intent)
+        assertEquals(listOf("brief_time"), SlotHelper.missing(bare.intent, bare.arguments))
+        val timed = engine.classify("рассказывай планы в 8 утра")
+        assertEquals("BRIEFING_SET", timed.intent)
+        assertEquals("8", timed.arguments["hour"])
+        assertEquals(emptyList<String>(), SlotHelper.missing(timed.intent, timed.arguments))
+        assertEquals("BRIEFING_OFF", engine.classify("выключи сводку").intent)
+        // Календарный вопрос не угоняется сводкой.
+        assertEquals("CALENDAR_TODAY", engine.classify("какие планы на сегодня").intent)
+    }
 }
